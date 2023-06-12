@@ -1,4 +1,4 @@
-# unityinject
+# UnityInjection
 Unity注入模块，可以运行时改变被注入函数实现。
 
 ![mono support](https://img.shields.io/badge/Mono-support-green)
@@ -24,6 +24,8 @@ Unity的注入模块已经有一些其他大神的实现了，为什么还要造
 ## Usage
 一个修改`VisualElement.FindAncestorUserData`的例子
 ```csharp
+using com.bbbirder.unity;
+
 // this illustration shows how to hook `VisualElement.FindAncestorUserData`
 public class FirstPatch
 {

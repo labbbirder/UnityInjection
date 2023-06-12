@@ -1,0 +1,16 @@
+{
+    "name": "com.bbbirder.unityinject.sample",
+    "rootNamespace": "",
+    "references": [
+        "GUID:57f501db924d77c409bbfbb200295415"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

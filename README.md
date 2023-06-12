@@ -22,20 +22,20 @@ Unity的注入模块已经有一些其他大神的实现了，为什么还要造
 4. 修改步骤繁琐，容易误操作
 
 ## Usage
-一个修改`VisualElement.FindAncestorUserData`的例子
+一个修改`Debug.Log`的例子
 ```csharp
 using com.bbbirder.unity;
+using UnityEngine;
 
-// this illustration shows how to hook `VisualElement.FindAncestorUserData`
+// this illustration shows how to hook `Debug.Log`
 public class FirstPatch
 {
-    // the field to be overwrited by original method
-    static Func<VisualElement,object> RawFindAncestorUserData;
+    // the field to be overwrited to original method
+    static Action<object> RawLog;
 
-    [Injection(typeof(VisualElement),"FindAncestorUserData",nameof(RawFindAncestorUserData))]
-    static object FindAncestorUserData(VisualElement ve){
-        Debug.Log("Hack Me!!!");
-        return RawFindAncestorUserData.Invoke(ve); 
+    [Injection(typeof(Debug),"Log",nameof(RawLog))]
+    static void Log(object msg){
+        return RawLog.Invoke("[msg] "+msg); 
     }
 }
 
@@ -51,10 +51,18 @@ FixHelper.Install();// 查找所有注入标记，并使生效
 ```
 测试成果：
 ```csharp
-new VisualElement().FindAncestorUserData(); //output: Hack Me!!!
+Debug.Log("hello"); //output: [msg] hello
 ```
+
+更多使用方法参考附带的Sample工程
+
 ## How it works
+UnityInjection在编译时注入，不用担心运行时兼容性
+
 如何注入：
 
   * 运行时：在打包的Link阶段修改DLL，如此使Runtime生效
   * 编辑器时：菜单[Tools/bbbirder/inject for Editor]，手动使编辑器模式生效。
+
+## Todo List
+1. Editor模式自动注入

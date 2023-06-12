@@ -28,15 +28,19 @@ public static class FixHelper {
             if(fiOri is null){
                 logError($"cannot find the field to store original method for method {methodName}");
             }
-            var oriDelegate = miOri.CreateDelegate(fiOri.FieldType);
-            if(oriDelegate is null){
-                logError($"create original delegate for {methodName} failed");
+            try {
+                var oriDelegate = miOri.CreateDelegate(fiOri.FieldType);
+                if(oriDelegate is null){
+                    logError($"create original delegate for {methodName} failed");
+                }
+                fiOri.SetValue(null,oriDelegate);
+            } catch (Exception e) {
+                var msg = $"error on create and set delegate for {methodName}\n"+e.Message;
+                logError(msg);
             }
-            fiOri.SetValue(null,oriDelegate);
             void logError(string message){
-                throw new( message + "\n"
-                    + injection.codeLocation.Item1 + ":" 
-                    + injection.codeLocation.Item2 );
+                var (path,line) = injection.codeLocation;
+                throw new( $"{message} \nInjection (at {path}:{line})");
             }
         }
     }

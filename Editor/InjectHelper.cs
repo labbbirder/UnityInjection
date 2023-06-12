@@ -26,10 +26,10 @@ public static class InjectHelper{
         foreach(var injection in injections){
             var (type,methodName,owName,miReplace) = injection;
             var targetType = targetAssembly.MainModule.Types
-                .Where(t => t.Name==type.Name && t.Namespace==type.Namespace)
+                .Where(t => IsSameType(type,t))
                 .SingleOrDefault();
             if(targetType is null){
-                throw new($"Cannot find Type `{type}` in target assembly");
+                throw new($"Cannot find Type `{type}` in target assembly {inputAssemblyPath}");
             }
             var targetMethod = targetType.FindMethod(methodName);
             if(targetMethod is null){
@@ -46,6 +46,13 @@ public static class InjectHelper{
 
         targetAssembly.Write(outputAssemblyPath);
         targetAssembly.Dispose();
+        static bool IsSameType(Type t1,TypeDefinition t2){
+            var isSameNamespace = t1.Namespace==t2.Namespace;
+            if(string.IsNullOrEmpty(t1.Namespace) && string.IsNullOrEmpty(t2.Namespace)){
+                isSameNamespace = true;
+            }
+            return t1.Name==t2.Name && isSameNamespace;
+        }
     }
     
     static FieldDefinition AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){

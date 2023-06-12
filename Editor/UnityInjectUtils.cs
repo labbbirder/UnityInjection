@@ -123,11 +123,11 @@ namespace com.bbbirder.unityeditor {
             var existsBacked = File.Exists(backPath);
 
             if (!existsBacked) {
-            if (!IsFileAvaliable(assemblyPath)) {
-                LogError($"cannot access file: {assemblyPath}");
-                return;
-            }
-            File.Copy(assemblyPath, backPath, true);
+                if (!IsFileAvaliable(assemblyPath)) {
+                    LogError($"cannot access file: {assemblyPath}");
+                    return;
+                }
+                File.Copy(assemblyPath, backPath, true);
             }
             // var assemblySearchFolders = GetAssemblySearchFolders(isEditor, buildTarget);
             // var replaceAssemblyPath = miReplace.DeclaringType.Assembly.Location;

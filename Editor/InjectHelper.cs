@@ -65,6 +65,7 @@ namespace com.bbbirder.unityeditor {
             targetAssembly.MainModule.Types.Add(InjectedMark);
 
             targetAssembly.Write(outputAssemblyPath);
+            targetAssembly.MainModule.AssemblyResolver.Dispose(); // fixes: auto resolved modules not disposed
             targetAssembly.Dispose();
             static bool IsSameType(Type t1,TypeDefinition t2){
                 var isSameNamespace = t1.Namespace==t2.Namespace;

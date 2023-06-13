@@ -3,6 +3,8 @@ Unity注入模块，可以运行时改变被注入函数实现。
 
 ![mono support](https://img.shields.io/badge/Mono-support-green)
 ![il2cpp support](https://img.shields.io/badge/IL2CPP-support-green)
+![GitHub last commit](https://img.shields.io/github/last-commit/labbbirder/unitysingleton)
+![GitHub package.json version](https://img.shields.io/github/package-json/v/labbbirder/unitysingleton)
 
 ## Purpose
 开发此模块的最初动机是修改UnityEngine的源码。对这样一个具体问题一般化分析和设计后，最终实现顺便支持了用户自定义的装饰器和AOP。

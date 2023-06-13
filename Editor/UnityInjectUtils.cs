@@ -60,7 +60,7 @@ namespace com.bbbirder.unityeditor {
                 //     ShouldReload = true; 
                 // }
                 previousCompiledAssemblies.Add(path);
-                Debug.Log("compile assembly "+path);
+                // Debug.Log("compile assembly "+path);
             //     foreach(var m in msg) Debug.Log(m);
             };
             CompilationPipeline.compilationFinished += (o)=>{

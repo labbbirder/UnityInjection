@@ -1,13 +1,13 @@
 {
   "name": "com.bbbirder.unityinject",
   "displayName": "unityinject",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
-  "samples":[
+  "samples": [
     {
-      "displayName":"DefaultSample",
-      "path":"Samples~/"
+      "displayName": "DefaultSample",
+      "path": "Samples~/"
     }
   ]
 }

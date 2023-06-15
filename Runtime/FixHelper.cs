@@ -23,7 +23,7 @@ namespace com.bbbirder.unity {
                     }
                     sfld.SetValue(null,@delegate);
                 } catch (Exception e){
-                    var msg = $"error on create and set delegate for injection method {methodName}\n"+e.Message;
+                    var msg = $"error on create and set delegate for injection method {methodName}\n"+e.Message+e.StackTrace;
                     logError(msg);
                 }
 
@@ -59,9 +59,6 @@ namespace com.bbbirder.unity {
             assemblies??=AppDomain.CurrentDomain.GetAssemblies();
             return assemblies
                 .Where(a=>a.MayContainsInjection())
-                .Select(a=>{
-                    return a;
-                })
                 .SelectMany(a=>a.GetTypes().SelectMany(t=>t.GetMethods(bindingFlags)))
                 .Select(m=>(m,m.GetCustomAttribute<InjectionAttribute>()))
                 .Where(ma=>ma.Item2 is not null)

@@ -46,7 +46,11 @@ namespace com.bbbirder.unityeditor {
         static void Install() {
             var previousCompiledAssemblies = new List<string>();
             CompilationPipeline.compilationStarted += (o)=>{
-                var settings = o?.GetMemberValue("Settings",true);
+                var settings = GetScriptAssemblySettings();
+                if(settings is null){
+                    Debug.LogError("cannot get BeeScriptCompilationState, Unity Version"+Application.unityVersion);
+                    return;
+                }
                 var BuildingForEditor = (bool)settings?.GetMemberValue("BuildingForEditor",true);
                 var OutputDirectory = (string)settings?.GetMemberValue("OutputDirectory",true);
                 if(!BuildingForEditor){
@@ -64,7 +68,12 @@ namespace com.bbbirder.unityeditor {
             //     foreach(var m in msg) Debug.Log(m);
             };
             CompilationPipeline.compilationFinished += (o)=>{
-                var BuildingForEditor = (bool)o?.GetMemberValue("Settings",true)?.GetMemberValue("BuildingForEditor",true);
+                var settings = GetScriptAssemblySettings();
+                if(settings is null){
+                    Debug.LogError("cannot get BeeScriptCompilationState, Unity Version"+Application.unityVersion);
+                    return;
+                }
+                var BuildingForEditor = (bool)settings.GetMemberValue("BuildingForEditor",true);
                 previousCompiledRecord.assemblyPathes = previousCompiledAssemblies.ToArray();
                 previousCompiledRecord.SaveAsset(); 
                 if(!BuildingForEditor){
@@ -212,12 +221,26 @@ namespace com.bbbirder.unityeditor {
 
             return true;
         }
+        static object GetScriptAssemblySettings(){
+            var t = t_EditorCompilationInterface??=GetType("UnityEditor.CoreModule","EditorCompilationInterface");
+            var editorCompilation = t.GetProperty("Instance",bindingFlags).GetValue(null);
+            // var compilationType = editorCompilation.GetType();
+            if(editorCompilation is null) throw new("cannot get editorCompilation,Unity:"+Application.unityVersion);
+            var state = editorCompilation.GetMemberValue("activeBeeBuild")
+                ?? editorCompilation.GetMemberValue("_currentBeeScriptCompilationState");
+            if(state is null) throw new ("cannot get compile state from editorCompilation,Unity:"+Application.unityVersion);
+            return state.GetMemberValue("Settings",true);
+        }
         static object GetMemberValue(this object obj,string name,bool IgnoreCase = false){
             var flags = bindingFlags;
             if(IgnoreCase) flags |= BindingFlags.IgnoreCase; 
             var memberInfo = obj.GetType().GetMember(name,flags).FirstOrDefault();
             if(memberInfo is null){
-                throw new($"cannot find member {name} in {obj}");
+                return null;
+                // var fields = obj.GetType().GetFields(flags).Select(f=>"field:"+f.Name);
+                // var props = obj.GetType().GetProperties(flags).Select(f=>"prop:"+f.Name);
+                // Debug.Log(string.Join("\n",fields)+"\n"+string.Join("\n",props));
+                // throw new($"cannot find member {name} in {obj}");
             }
             if(memberInfo is FieldInfo fi){
                 return fi.GetValue(obj);
@@ -230,6 +253,15 @@ namespace com.bbbirder.unityeditor {
             }
             return null;
         }
+        static Type GetType(string moduleName, string typeName)
+        {
+            return System.AppDomain.CurrentDomain.GetAssemblies()
+                .Where(a => a.FullName.StartsWith(moduleName+","))
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.Name.Equals(typeName))
+                .Single();
+        }
+        static Type t_EditorCompilationInterface;
         // /// <summary>
         // /// scripts recompiled during edtior mode
         // /// </summary>

@@ -30,18 +30,17 @@ namespace com.bbbirder.unityeditor {
         }
         //TODO: check previous compiled asset & inject editor
         // [InitializeOnLoadMethod] 
-        [DidReloadScripts]
-        static void TestInject() {
-            // if(typeof(UnityInjectUtils).Assembly.IsDynamic){
-            //     return;
-            // }
-            var assemblies = previousCompiledRecord.GetAssemblies();
-            if(assemblies.Length>0) {
-                // InjectEditor(assemblies);
-                //TODO: Automatically inject for editor
-            }
-            new VisualElement().FindAncestorUserData();
-        }
+        // [DidReloadScripts]
+        // static void TestInject() {
+        //     // if(typeof(UnityInjectUtils).Assembly.IsDynamic){
+        //     //     return;
+        //     // }
+        //     var assemblies = previousCompiledRecord.GetAssemblies();
+        //     if(assemblies.Length>0) {
+        //         InjectEditor(previousCompiledRecord.GetAssemblies());
+        //         //TODO: Automatically inject for editor
+        //     }
+        // }
         [InitializeOnLoadMethod]
         static void Install() {
             var previousCompiledAssemblies = new List<string>();
@@ -77,22 +76,33 @@ namespace com.bbbirder.unityeditor {
                 previousCompiledRecord.assemblyPathes = previousCompiledAssemblies.ToArray();
                 previousCompiledRecord.SaveAsset(); 
                 if(!BuildingForEditor){
-                    //TODO: Inject Runtime
                     InjectRuntime();
-                // }else{
-                    // CompiledInEditor = true;
+                }else{
+                    var assemblies = previousCompiledRecord.GetAssemblies();
+                    if(assemblies.Length>0) {
+                        InjectEditor(previousCompiledRecord.GetAssemblies());
+                    }
                 }
             };
         }
 
         public static void InjectEditor(Assembly[] assemblies) {
-            var injections = FixHelper.GetAllInjections(assemblies);
+            var allInjections = FixHelper.allInjections;
+            var freshInjections = FixHelper.GetAllInjections(assemblies);
+            var freshAssemblies = freshInjections.Select(inj=>inj.targetType.Assembly).Distinct().ToHashSet();
+            var outcomeInjections = allInjections.Where(inj=>freshAssemblies.Contains(inj.targetType.Assembly)).ToArray();
+            Debug.Log($"auto inject {allInjections.Length} injections, {outcomeInjections.Length} to inject");
+            if(outcomeInjections.Length>0){
+                var isWritten = InjectTargetMode(outcomeInjections,true,activeBuildTarget);
 
-            if(injections.Length>0){
-                InjectTargetMode(injections,true,activeBuildTarget);
-                #if UNITY_2019_3_OR_NEWER
-                EditorUtility.RequestScriptReload();
-                #endif
+                if(isWritten){
+                    Debug.Log($"reload scripts {EditorApplication.isCompiling}");
+                    #if UNITY_2019_3_OR_NEWER
+                    EditorUtility.RequestScriptReload();
+                    #else
+                    UnityEditorInternal.InternalEditorUtility.RequestScriptReload();
+                    #endif
+                }
             }
         }
 
@@ -100,13 +110,16 @@ namespace com.bbbirder.unityeditor {
             InjectTargetMode(FixHelper.allInjections,false,activeBuildTarget);
         }
 
-        static void InjectTargetMode(InjectionParams[] injections,bool isEditor, BuildTarget buildTarget) {
+        static bool InjectTargetMode(InjectionParams[] injections,bool isEditor, BuildTarget buildTarget) {
             var group = injections.GroupBy(inj=>inj.targetType.Assembly);
+            var isWritten = false;
             foreach(var g in group){
                 var assemblyPath = GetResolvedAssemblyPath(g.Key.GetAssemblyPath(),isEditor,buildTarget);
-                VisitAssembly(assemblyPath,g.ToArray(),isEditor,buildTarget);
+                isWritten |= VisitAssembly(assemblyPath,g.ToArray(),isEditor,buildTarget);
             }
+            return isWritten;
         }
+
         static string GetResolvedAssemblyPath(string assemblyPath,bool isEditor,BuildTarget buildTarget) {
             var fileName = Path.GetFileName(assemblyPath);
             if (!isEditor){
@@ -127,23 +140,28 @@ namespace com.bbbirder.unityeditor {
         static string GetEditorAssemblyPath(string assemblyPath)
             => assemblyPath;
         
-        static void VisitAssembly(string assemblyPath,InjectionParams[] injections,bool isEditor,BuildTarget buildTarget) {
+        static bool VisitAssembly(string assemblyPath,InjectionParams[] injections,bool isEditor,BuildTarget buildTarget) {
             var backPath = assemblyPath + BACKUP_EXT;
             var existsBacked = File.Exists(backPath);
 
             if (!existsBacked) {
                 if (!IsFileAvaliable(assemblyPath)) {
                     LogError($"cannot access file: {assemblyPath}");
-                    return;
+                    return false;
                 }
                 File.Copy(assemblyPath, backPath, true);
             }
             // var assemblySearchFolders = GetAssemblySearchFolders(isEditor, buildTarget);
             // var replaceAssemblyPath = miReplace.DeclaringType.Assembly.Location;
 
-            InjectHelper.InjectAssembly(injections,backPath,assemblyPath);
-            Debug.Log($"Inject success: {assemblyPath}");
+            var isWritten = InjectHelper.InjectAssembly(injections,backPath,assemblyPath);
+
+            if(isWritten) 
+                Debug.Log($"Inject success: {assemblyPath}");
+            
+            return isWritten;
         }
+
         static bool IsFileAvaliable(string path) {
             try {
                 var fs = File.Open(path,FileMode.Open);

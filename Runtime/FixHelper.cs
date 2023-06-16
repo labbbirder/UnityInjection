@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
 using System.IO;
+using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace com.bbbirder.unity {
     public static class FixHelper {
@@ -23,7 +25,7 @@ namespace com.bbbirder.unity {
                     }
                     sfld.SetValue(null,@delegate);
                 } catch (Exception e){
-                    var msg = $"error on create and set delegate for injection method {methodName}\n"+e.Message+e.StackTrace;
+                    var msg = $"error on create and set delegate for injection method {methodName}\n{e.Message}\n{e.StackTrace}";
                     logError(msg);
                 }
 
@@ -34,13 +36,14 @@ namespace com.bbbirder.unity {
                     logError($"cannot find the field to store original method for method {methodName}");
                 }
                 try {
+                    
                     var oriDelegate = miOri.CreateDelegate(fiOri.FieldType);
                     if(oriDelegate is null){
                         logError($"create original delegate for {methodName} failed");
                     }
                     fiOri.SetValue(null,oriDelegate);
                 } catch (Exception e) {
-                    var msg = $"error on create and set delegate for original method {methodName}\n"+e.Message;
+                    var msg = $"error on create and set delegate for original method {methodName}\n{e.Message}\n{e.StackTrace}";
                     logError(msg);
                 }
                 void logError(string message){
@@ -48,6 +51,7 @@ namespace com.bbbirder.unity {
                     throw new( $"{message} \nInjection (at {path}:{line})");
                 }
             }
+            Debug.Log($"fixed {allInjections.Length} injections successfully!");
         }
 
         /// <summary>

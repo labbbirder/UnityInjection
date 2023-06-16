@@ -110,6 +110,7 @@ namespace com.bbbirder.unityeditor {
             MethodDefinition targetMethod,MethodDefinition originalMethod,
             FieldDefinition delegateField,string methodName
         ){
+            var argidx = 0;
             var HasThis =           targetMethod.HasThis;
             var Parameters =        targetMethod.Parameters;
             // var GenericParameters = targetMethod.GenericParameters;
@@ -125,19 +126,34 @@ namespace com.bbbirder.unityeditor {
             ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld,  delegateField));
             ilProcessor.Append(Instruction.Create(OpCodes.Brtrue_S,tagOp));
             
-            //set field
+            // //set field
+            // if(HasThis)
+            //     ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
+            // else
+            //     ilProcessor.Append(Instruction.Create(OpCodes.Ldnull));
+            // ilProcessor.Append(Instruction.Create(OpCodes.Ldftn, originalMethod));
+            // ilProcessor.Append(Instruction.Create(OpCodes.Newobj,delegateType.FindMethod(".ctor")));
+            // ilProcessor.Append(Instruction.Create(OpCodes.Stsfld,delegateField));
+
+            //invoke origin
+            argidx = 0;
             if(HasThis)
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
-            else
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldnull));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldftn, originalMethod));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newobj,delegateType.FindMethod(".ctor")));
-            ilProcessor.Append(Instruction.Create(OpCodes.Stsfld,delegateField));
+                ilProcessor.Append(ilProcessor.createLdarg(argidx++));
+            for(var i=0; i<Parameters.Count; i++){
+                var pType = Parameters[i].ParameterType;
+                ilProcessor.Append(ilProcessor.createLdarg(argidx++));
+                // if(pType.IsValueType)
+                //     ilProcessor.Append(Instruction.Create(OpCodes.Box,pType));
+            }
+            ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,originalMethod));
+            // if(originalMethod.IsReturnVoid())
+            //     ilProcessor.Append(Instruction.Create(OpCodes.Pop));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ret));
 
             //invoke
             ilProcessor.Append(tagOp);
             ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld,delegateField));
-            var argidx = 0;
+            argidx = 0;
             if(HasThis)
                 ilProcessor.Append(ilProcessor.createLdarg(argidx++));
             for(var i=0; i<Parameters.Count; i++){
@@ -288,7 +304,11 @@ namespace com.bbbirder.unityeditor {
             var invoke = new MethodDefinition("Invoke", DelegateMethodAttributes, returnType);
             foreach (var p in parameters)
             {
-                invoke.Parameters.Add(new ParameterDefinition(p));
+                // if(!p.IsValueType){
+                //     invoke.Parameters.Add(new ParameterDefinition(p.Name,ParameterAttributes.In,objectType));
+                // }else{
+                    invoke.Parameters.Add(new ParameterDefinition(p));
+                // }
             }
             invoke.ImplAttributes = MethodImplAttributes.Runtime;
             dt.Methods.Add(invoke);

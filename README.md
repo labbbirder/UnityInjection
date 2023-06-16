@@ -67,4 +67,4 @@ UnityInjection在编译时注入，不用担心运行时兼容性
   * 编辑器时：菜单[Tools/bbbirder/inject for Editor]，手动使编辑器模式生效。
 
 ## Todo List
-1. Editor模式自动注入
+1. 更多Unity版本测试，有问题提ISSUE附Unity版本，或者PR。

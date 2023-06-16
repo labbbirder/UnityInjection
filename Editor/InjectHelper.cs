@@ -11,7 +11,14 @@ using UnityEngine;
 namespace com.bbbirder.unityeditor {
     public static class InjectHelper{
 
-        internal static void InjectAssembly(InjectionParams[] injections, string inputAssemblyPath,string outputAssemblyPath) {
+        /// <summary>
+        /// inject target assembly
+        /// </summary>
+        /// <param name="injections"></param>
+        /// <param name="inputAssemblyPath"></param>
+        /// <param name="outputAssemblyPath"></param>
+        /// <returns>is written</returns>
+        internal static bool InjectAssembly(InjectionParams[] injections, string inputAssemblyPath,string outputAssemblyPath) {
 
             // var assemblySearchFolders = UnityInjectUtils.GetAssemblySearchFolders(isEditor, buildTarget);
             var resolver = new DefaultAssemblyResolver();
@@ -31,8 +38,8 @@ namespace com.bbbirder.unityeditor {
                 Settings.InjectedMarkName == t.Name &&
                 Settings.InjectedMarkNamespace ==t.Namespace);
             if(injected){
-                targetAssembly.Dispose();
-                return;
+                targetAssembly.Release();
+                return false;
             }
 
             foreach(var injection in injections){
@@ -65,8 +72,8 @@ namespace com.bbbirder.unityeditor {
             targetAssembly.MainModule.Types.Add(InjectedMark);
 
             targetAssembly.Write(outputAssemblyPath);
-            targetAssembly.MainModule.AssemblyResolver.Dispose(); // fixes: auto resolved modules not disposed
-            targetAssembly.Dispose();
+            targetAssembly.Release();
+            return true;
             static bool IsSameType(Type t1,TypeDefinition t2){
                 var isSameNamespace = t1.Namespace==t2.Namespace;
                 if(string.IsNullOrEmpty(t1.Namespace) && string.IsNullOrEmpty(t2.Namespace)){
@@ -81,6 +88,12 @@ namespace com.bbbirder.unityeditor {
             duplicatedMethod.Name = originName;
             targetType.Methods.Add(duplicatedMethod);
             return duplicatedMethod;
+        }
+        static void Release(this AssemblyDefinition assemblyDefinition){
+            if(assemblyDefinition == null) return;
+            assemblyDefinition.MainModule.AssemblyResolver?.Dispose();
+            assemblyDefinition.MainModule.SymbolReader?.Dispose();
+            assemblyDefinition.Dispose();
         }
         static FieldDefinition AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){
             var injectionName = Settings.GetInjectedFieldName(methodName);

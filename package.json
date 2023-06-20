@@ -4,6 +4,9 @@
   "version": "0.0.14",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
+  "dependencies": {
+    "com.bbbirder.directattribute": "0.0.1"
+  },
   "samples": [
     {
       "displayName": "DefaultSample",

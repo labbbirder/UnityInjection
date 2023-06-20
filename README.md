@@ -8,10 +8,6 @@ Unity注入模块，可以运行时改变被注入函数实现。.
 
 Verified: unity 2021, unity 2022
 
-
-![unity 2021](https://img.shields.io/badge/validated-Unity_2021-green)
-![unity 2021](https://img.shields.io/badge/validated-Unity_2022-green)
-
 ## Purpose
 开发此模块的最初动机是修改UnityEngine的源码。对这样一个具体问题一般化分析和设计后，最终实现顺便支持了用户自定义的装饰器和AOP。
 

@@ -1,7 +1,9 @@
 {
     "name": "com.bbbirder.unityinject",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "GUID:b66755024ec682a4aa0f53d87f0616ea"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

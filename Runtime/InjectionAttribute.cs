@@ -1,9 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
+using com.bbbirder;
 
 namespace com.bbbirder.unity {
     [AttributeUsage(AttributeTargets.Method)]
-    public class InjectionAttribute:Attribute{
+    public class InjectionAttribute:DirectRetrieveAttribute{
         public Type type {get;private set;}
         public string methodName {get;private set;}
         public string overwriteName {get;private set;}

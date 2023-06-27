@@ -5,6 +5,7 @@ using System.Linq;
 using System.IO;
 using UnityEngine;
 using System.Runtime.InteropServices;
+using com.bbbirder;
 
 namespace com.bbbirder.unity {
     public static class FixHelper {
@@ -61,26 +62,26 @@ namespace com.bbbirder.unity {
         /// <returns></returns>
         public static InjectionParams[] GetAllInjections(Assembly[] assemblies=null) {
             assemblies??=AppDomain.CurrentDomain.GetAssemblies();
-            return assemblies
-                .Where(a=>a.MayContainsInjection())
-                .SelectMany(a=>a.GetTypes().SelectMany(t=>t.GetMethods(bindingFlags)))
-                .Select(m=>(m,m.GetCustomAttribute<InjectionAttribute>()))
-                .Where(ma=>ma.Item2 is not null)
-                .Select(ma=>{
-                    var (m,a) = ma;
-                    var methodName = a.methodName;
+            var injections =  assemblies
+                // .Where(a=>a.MayContainsInjection()) 
+                .SelectMany(a=>Retriever.GetAllAttributes<InjectionAttribute>(a))
+                .Where(ia=>ia.memberInfo is MethodInfo)
+                .Select(ia=>{
+                    var m = ia.memberInfo as MethodInfo;
+                    var methodName = ia.methodName;
                     if(string.IsNullOrEmpty(methodName)){
                         methodName = m.Name;
                     }
                     return new InjectionParams(){
-                        targetType = a.type,
+                        targetType = ia.type,
                         methodName = methodName,
-                        overwriteName = a.overwriteName,
+                        overwriteName = ia.overwriteName,
                         replaceMethod = m,
-                        codeLocation = a.codeLocation,
+                        codeLocation = ia.codeLocation,
                     };
                 })
                 .ToArray();
+            return injections;
         }
         // public static T GetRawCall<T>(Type t,string methodName) where T:MulticastDelegate{
         //     var key = (t,methodName);

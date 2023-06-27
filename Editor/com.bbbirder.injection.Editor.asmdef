@@ -1,14 +1,18 @@
 {
-    "name": "com.bbbirder.unityinject",
+    "name": "com.bbbirder.injection.Editor",
     "rootNamespace": "",
     "references": [
-        "GUID:b66755024ec682a4aa0f53d87f0616ea"
+        "com.bbbirder.injection"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Mono.Cecil.dll"
+    ],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],

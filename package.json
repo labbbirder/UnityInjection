@@ -8,6 +8,10 @@
   "dependencies": {
     "com.bbbirder.directattribute": "0.0.11"
   },
+  "subtree":"UnityInjection",
+  "scripts": {
+    "tpush":"node ../../scripts/tpush.mjs"
+  },
   "samples": [
     {
       "displayName": "DefaultSample",

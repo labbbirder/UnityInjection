@@ -3,8 +3,8 @@ Unity注入模块，可以运行时改变被注入函数实现。
 
 ![mono support](http://img.shields.io/badge/Mono-support-green)
 ![il2cpp support](http://img.shields.io/badge/IL2CPP-support-green)
-![GitHub last commit](http://img.shields.io/github/last-commit/labbbirder/unitysingleton)
-![GitHub package.json version](http://img.shields.io/github/package-json/v/labbbirder/unitysingleton)
+![GitHub last commit](http://img.shields.io/github/last-commit/labbbirder/UnityInjection)
+![GitHub package.json version](http://img.shields.io/github/package-json/v/labbbirder/UnityInjection)
 
 Verified: unity 2021, unity 2022
 

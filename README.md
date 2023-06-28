@@ -1,5 +1,5 @@
 # UnityInjection
-Unity注入模块，可以运行时改变被注入函数实现。.
+Unity注入模块，可以运行时改变被注入函数实现。
 
 ![mono support](http://img.shields.io/badge/Mono-support-green)
 ![il2cpp support](http://img.shields.io/badge/IL2CPP-support-green)
@@ -25,7 +25,12 @@ Unity的注入模块已经有一些其他大神的实现了，为什么还要造
 3. 不能改变Unity版本
 4. 修改步骤繁琐，容易误操作
 
-## Usage
+## Quick Start
+### Installation
+step 1. 安装依赖库：[DirectRetrieveAttribute](https://github.com/labbbirder/DirectRetrieveAttribute#安装)
+
+step 2. 通过git url安装
+### Basic Usage
 一个修改`Debug.Log`的例子
 ```csharp
 using com.bbbirder.unity;

@@ -2,11 +2,11 @@
   "name": "com.bbbirder.injection",
   "displayName": "Unity Injection",
   "description": "Unity注入模块，可以运行时改变被注入函数实现。",
-  "version": "0.0.35",
+  "version": "0.0.37",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
   "dependencies": {
-    "com.bbbirder.directattribute": "0.0.18"
+    "com.bbbirder.directattribute": "0.0.20"
   },
   "subtree": "UnityInjection",
   "scripts": {
@@ -18,5 +18,6 @@
       "displayName": "DefaultSample",
       "path": "Samples/"
     }
-  ]
+  ],
+  "gitHead": "06fad557af6ced831bc680c6cc945f9371d19eac"
 }

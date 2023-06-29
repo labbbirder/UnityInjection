@@ -16,7 +16,7 @@
   "samples": [
     {
       "displayName": "DefaultSample",
-      "path": "Samples/"
+      "path": "Samples~/"
     }
   ],
   "gitHead": "06fad557af6ced831bc680c6cc945f9371d19eac"

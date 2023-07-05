@@ -17,7 +17,6 @@ using com.bbbirder.unity;
 using Assembly = System.Reflection.Assembly;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
-using InjectionParams = com.bbbirder.unity.FixHelper.InjectionParams;
 
 namespace com.bbbirder.unityeditor {
     public static class UnityInjectUtils{
@@ -89,8 +88,8 @@ namespace com.bbbirder.unityeditor {
         public static void InjectEditor(Assembly[] assemblies) {
             var allInjections = FixHelper.allInjections;
             var freshInjections = FixHelper.GetAllInjections(assemblies);
-            var freshAssemblies = freshInjections.Select(inj=>inj.targetType.Assembly).Distinct().ToHashSet();
-            var outcomeInjections = allInjections.Where(inj=>freshAssemblies.Contains(inj.targetType.Assembly)).ToArray();
+            var freshAssemblies = freshInjections.Select(inj=>inj.InjectedMethod.DeclaringType.Assembly).Distinct().ToHashSet();
+            var outcomeInjections = allInjections.Where(inj=>freshAssemblies.Contains(inj.InjectedMethod.DeclaringType.Assembly)).ToArray();
             Debug.Log($"auto inject {allInjections.Length} injections, {outcomeInjections.Length} to inject");
             if(outcomeInjections.Length>0){
                 var isWritten = InjectTargetMode(outcomeInjections,true,activeBuildTarget);
@@ -110,8 +109,8 @@ namespace com.bbbirder.unityeditor {
             InjectTargetMode(FixHelper.allInjections,false,activeBuildTarget);
         }
 
-        static bool InjectTargetMode(InjectionParams[] injections,bool isEditor, BuildTarget buildTarget) {
-            var group = injections.GroupBy(inj=>inj.targetType.Assembly);
+        static bool InjectTargetMode(InjectionAttribute[] injections,bool isEditor, BuildTarget buildTarget) {
+            var group = injections.GroupBy(inj=>inj.InjectedMethod.DeclaringType.Assembly);
             var isWritten = false;
             foreach(var g in group){
                 var assemblyPath = GetResolvedAssemblyPath(g.Key.GetAssemblyPath(),isEditor,buildTarget);
@@ -140,26 +139,37 @@ namespace com.bbbirder.unityeditor {
         static string GetEditorAssemblyPath(string assemblyPath)
             => assemblyPath;
         
-        static bool VisitAssembly(string assemblyPath,InjectionParams[] injections,bool isEditor,BuildTarget buildTarget) {
+        static bool VisitAssembly(string assemblyPath,InjectionAttribute[] injections,bool isEditor,BuildTarget buildTarget) {
             var backPath = assemblyPath + BACKUP_EXT;
-            var existsBacked = File.Exists(backPath);
+            var IsEngineAssembly = Path.GetFullPath(assemblyPath)
+                .StartsWith(Path.GetFullPath(EditorApplication.applicationContentsPath));
 
-            if (!existsBacked) {
+            // engine dlls should be backed up
+            if (IsEngineAssembly&&!File.Exists(backPath)) {
                 if (!IsFileAvaliable(assemblyPath)) {
                     LogError($"cannot access file: {assemblyPath}");
                     return false;
                 }
                 File.Copy(assemblyPath, backPath, true);
+            }else{
+                // File.Copy(backPath, assemblyPath, true);
             }
             // var assemblySearchFolders = GetAssemblySearchFolders(isEditor, buildTarget);
             // var replaceAssemblyPath = miReplace.DeclaringType.Assembly.Location;
+            try{
+                var inputPath = IsEngineAssembly ? backPath : assemblyPath;
+                var isWritten = InjectHelper.InjectAssembly(injections,inputPath,assemblyPath);
 
-            var isWritten = InjectHelper.InjectAssembly(injections,backPath,assemblyPath);
-
-            if(isWritten) 
-                Debug.Log($"Inject success: {assemblyPath}");
+                if(isWritten) 
+                    Debug.Log($"Inject success: {assemblyPath}");
+                return isWritten;
+            }catch{
+                if(IsEngineAssembly){
+                    File.Copy(backPath, assemblyPath, true);
+                }
+                throw;
+            }
             
-            return isWritten;
         }
 
         static bool IsFileAvaliable(string path) {

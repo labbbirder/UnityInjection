@@ -4,82 +4,74 @@ using System.Reflection;
 using System.Linq;
 using System.IO;
 using UnityEngine;
-using System.Runtime.InteropServices;
 using com.bbbirder;
 
 namespace com.bbbirder.unity {
     public static class FixHelper {
         public static void Install() {
             foreach(var injection in allInjections){
-                var (type,methodName,owName,replaceMethod) = injection;
+                FixMethod(injection);
+            }
+            Debug.Log($"fixed {allInjections.Length} injections successfully!");
+        }
+        public static MethodInfo GetOriginMethodFor(MethodInfo mi){
+            var oriName = Settings.GetOriginMethodName(mi.Name);
+            return mi.DeclaringType.GetMethod(oriName,bindingFlags);
+        }
 
-                // set static field value
-                try{
-                    var sfld = type.GetField(Settings.GetInjectedFieldName(methodName),bindingFlags);
-                    if(sfld is null) {
-                        logError($"Unable to fix target method {methodName} in type {type}, this may caused by injection issues." 
-                        + " Try execute menu [Tools/bbbirder/Inject for Editor] if you see this in Editor mode");
-                    }
-                    var @delegate = replaceMethod.CreateDelegate(sfld.FieldType);
-                    if(@delegate is null){
-                        logError($"Unable to create delegate for replace method {replaceMethod}, whose target is {methodName}");
-                    }
-                    sfld.SetValue(null,@delegate);
-                } catch (Exception e){
-                    var msg = $"error on create and set delegate for injection method {methodName}\n{e.Message}\n{e.StackTrace}";
-                    logError(msg);
+        static void FixMethod(InjectionAttribute injection){
+            var targetMethod = injection.InjectedMethod;
+            var fixingMethod = injection.FixingMethod;
+            var fixingDelegate = injection.FixingDelegate;
+            var originSavingField = injection.OriginSavingField;
+            var originSavingTarget = injection.OriginSavingTarget;
+            var targetType = targetMethod.DeclaringType;
+            var methodName = targetMethod.Name;
+            // set static field value
+            var sfld = targetType.GetField(Settings.GetInjectedFieldName(methodName),bindingFlags);
+            try{
+                if(sfld is null) {
+                    logError($"Unable to fix target method {methodName} in type {targetType}, this may caused by injection issues." 
+                    + " Try execute menu [Tools/bbbirder/Inject for Editor] if you see this in Editor mode");
                 }
+                var @delegate = fixingDelegate ?? fixingMethod.CreateDelegate(sfld.FieldType);
+                if(@delegate is null){
+                    logError($"Unable to create delegate for replace method {fixingMethod}, whose target is {methodName}");
+                }
+                sfld.SetValue(null,@delegate);
+            } catch (Exception e){
+                var msg = $"error on create and set delegate for injection method {methodName}\n{e.Message}\n{e.StackTrace}";
+                logError(msg);
+            }
 
-                // set overwrite origin field
-                var miOri = type.GetMethod(Settings.GetOriginMethodName(methodName),bindingFlags);
-                var fiOri = replaceMethod.DeclaringType?.GetField(owName,bindingFlags);
-                if(fiOri is null){
-                    logError($"cannot find the field to store original method for method {methodName}");
-                }
+            // set overwrite origin field
+            var originMethod = targetType.GetMethod(Settings.GetOriginMethodName(methodName),bindingFlags);
+            // if(originSavingField != null){
                 try {
-                    
-                    var oriDelegate = miOri.CreateDelegate(fiOri.FieldType);
+                    var oriDelegate = originMethod.CreateDelegate(sfld.FieldType);
                     if(oriDelegate is null){
                         logError($"create original delegate for {methodName} failed");
                     }
-                    fiOri.SetValue(null,oriDelegate);
+                    originSavingField.SetValue(originSavingTarget,oriDelegate);
                 } catch (Exception e) {
                     var msg = $"error on create and set delegate for original method {methodName}\n{e.Message}\n{e.StackTrace}";
                     logError(msg);
                 }
-                void logError(string message){
-                    var (path,line) = injection.codeLocation;
-                    throw new( $"{message} \nInjection (at {path}:{line})");
-                }
+            // }
+            void logError(string message){
+                throw new(message);
             }
-            Debug.Log($"fixed {allInjections.Length} injections successfully!");
         }
-
         /// <summary>
         /// Get all injections in current domain.
         /// </summary>
         /// <param name="assemblies">The assemblies to search in. All loaded assemblies if omitted</param>
         /// <returns></returns>
-        public static InjectionParams[] GetAllInjections(Assembly[] assemblies=null) {
+        public static InjectionAttribute[] GetAllInjections(Assembly[] assemblies=null) {
             assemblies??=AppDomain.CurrentDomain.GetAssemblies();
             var injections =  assemblies
                 // .Where(a=>a.MayContainsInjection()) 
                 .SelectMany(a=>Retriever.GetAllAttributes<InjectionAttribute>(a))
-                .Where(ia=>ia.memberInfo is MethodInfo)
-                .Select(ia=>{
-                    var m = ia.memberInfo as MethodInfo;
-                    var methodName = ia.methodName;
-                    if(string.IsNullOrEmpty(methodName)){
-                        methodName = m.Name;
-                    }
-                    return new InjectionParams(){
-                        targetType = ia.type,
-                        methodName = methodName,
-                        overwriteName = ia.overwriteName,
-                        replaceMethod = m,
-                        codeLocation = ia.codeLocation,
-                    };
-                })
                 .ToArray();
             return injections;
         }
@@ -93,11 +85,12 @@ namespace com.bbbirder.unity {
         //     }
         //     return (T)call;
         // }
-        static bool MayContainsInjection(this Assembly assembly) {
-            checkedAssemblyName ??= typeof(InjectionAttribute).Assembly.GetName().ToString();
-            return assembly.GetReferencedAssemblies()
-                .Any(a => a.ToString() == checkedAssemblyName);
-        }
+
+        // static bool MayContainsInjection(this Assembly assembly) {
+        //     checkedAssemblyName ??= typeof(InjectionAttribute).Assembly.GetName().ToString();
+        //     return assembly.GetReferencedAssemblies()
+        //         .Any(a => a.ToString() == checkedAssemblyName);
+        // }
 
         public static string GetAssemblyPath(this Assembly assembly)
         {
@@ -151,11 +144,9 @@ namespace com.bbbirder.unity {
             return null;
         }
 
-        static InjectionParams[] m_allInjections;
-        public static InjectionParams[] allInjections=>m_allInjections ??= GetAllInjections();
+        static InjectionAttribute[] m_allInjections;
+        public static InjectionAttribute[] allInjections=>m_allInjections ??= GetAllInjections();
 
-        // internal static Dictionary<(Type,string),Delegate> s_rawCalls = new ();
-        // internal static Dictionary<(Type,string),MethodInfo> s_rawMethodInfos = new ();
         static string checkedAssemblyName = null;
         static BindingFlags bindingFlags = 0
             | BindingFlags.Static
@@ -163,20 +154,5 @@ namespace com.bbbirder.unity {
             | BindingFlags.Public
             | BindingFlags.NonPublic
             ;
-
-
-        public class InjectionParams {
-            public Type targetType;
-            public string methodName;
-            public string overwriteName;
-            public MethodInfo replaceMethod;
-            public (string,int) codeLocation;
-            public void Deconstruct(out Type type,out string name,out string owName,out MethodInfo method){
-                type = targetType;
-                name = methodName;
-                owName = overwriteName;
-                method = replaceMethod;
-            }
-        }
     }
 }

@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using com.bbbirder.unity;
-using InjectionParams = com.bbbirder.unity.FixHelper.InjectionParams;
 using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEditorInternal;
+using UnityEditor;
 
 namespace com.bbbirder.unityeditor {
     public static class InjectHelper{
@@ -18,7 +20,7 @@ namespace com.bbbirder.unityeditor {
         /// <param name="inputAssemblyPath"></param>
         /// <param name="outputAssemblyPath"></param>
         /// <returns>is written</returns>
-        internal static bool InjectAssembly(InjectionParams[] injections, string inputAssemblyPath,string outputAssemblyPath) {
+        internal static bool InjectAssembly(InjectionAttribute[] injections, string inputAssemblyPath,string outputAssemblyPath) {
 
             // var assemblySearchFolders = UnityInjectUtils.GetAssemblySearchFolders(isEditor, buildTarget);
             var resolver = new DefaultAssemblyResolver();
@@ -26,10 +28,12 @@ namespace com.bbbirder.unityeditor {
             // foreach(var folder in assemblySearchFolders){
             //    resolver.AddSearchDirectory(folder);
             // }
-            
+            var IsEngineAssembly = Path.GetFullPath(inputAssemblyPath)
+                .StartsWith(Path.GetFullPath(EditorApplication.applicationContentsPath));
             var targetAssembly = AssemblyDefinition.ReadAssembly(inputAssemblyPath, new ReaderParameters(){
                 AssemblyResolver=resolver,
                 ReadingMode=ReadingMode.Immediate,
+                ReadSymbols = !IsEngineAssembly,
                 InMemory = true,
             });
 
@@ -43,14 +47,15 @@ namespace com.bbbirder.unityeditor {
             }
 
             foreach(var injection in injections){
-                var (type,methodName,owName,miReplace) = injection;
+                var type = injection.InjectedMethod.DeclaringType;
+                var methodName = injection.InjectedMethod.Name;
                 var targetType = targetAssembly.MainModule.Types
                     .Where(t => IsSameType(type,t))
                     .SingleOrDefault();
                 if(targetType is null){
                     throw new($"Cannot find Type `{type}` in target assembly {inputAssemblyPath}");
                 }
-                var targetMethod = targetType.FindMethod(methodName);
+                var targetMethod = targetType.FindMethod(methodName).Resolve();
                 if(targetMethod is null){
                     throw new($"Cannot find Method `{methodName}` in Type `{type}`");
                 }
@@ -58,9 +63,9 @@ namespace com.bbbirder.unityeditor {
                 //add origin
                 var originalMethod = targetType.DuplicateOriginalMethod(targetMethod);
                 //add field
-                var field = targetType.AddInjectField(targetMethod,methodName);
+                var (field,fieldInvoke) = targetType.AddInjectField(targetMethod,methodName);
                 //add method
-                targetType.AddInjectionMethod(targetMethod,originalMethod,field,methodName);
+                targetType.AddInjectionMethod(targetMethod,originalMethod,field,fieldInvoke,methodName);
             }
 
             //mark make
@@ -69,9 +74,30 @@ namespace com.bbbirder.unityeditor {
                 Settings.InjectedMarkName,
                 TypeAttributes.Class,
                 targetAssembly.MainModule.TypeSystem.Object);
+            
+            // var git = new GenericInstanceType(targetAssembly.MainModule.ConvertType(typeof(Action<,>)));
+            // git.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.String);
+            // git.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
+            // var fld_afaik_1 = new FieldDefinition("afaik", FieldAttributes.Public, git);
+			// InjectedMark.Fields.Add(fld_afaik_1);
+
+            // var git5 = new GenericInstanceType(targetAssembly.MainModule.ConvertType(typeof(Action<,,,,>)));
+            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
+            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
+            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.String);
+            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Single);
+            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
+            // var fld_afaik_5 = new FieldDefinition("afaik5", FieldAttributes.Public, git5);
+			// InjectedMark.Fields.Add(fld_afaik_5);
+
             targetAssembly.MainModule.Types.Add(InjectedMark);
 
-            targetAssembly.Write(outputAssemblyPath);
+
+            targetAssembly.Write(outputAssemblyPath,new WriterParameters(){
+                WriteSymbols = !IsEngineAssembly,
+                // WriteSymbols = File.Exists(Path.ChangeExtension(outputAssemblyPath,"pdb")),
+                // SymbolWriterProvider = new PortablePdbWriterProvider()
+            });
             targetAssembly.Release();
             return true;
             static bool IsSameType(Type t1,TypeDefinition t2){
@@ -85,6 +111,7 @@ namespace com.bbbirder.unityeditor {
         static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType,MethodDefinition targetMethod){
             var originName = Settings.GetOriginMethodName(targetMethod.Name);
             var duplicatedMethod = targetMethod.Clone();
+            duplicatedMethod.IsPrivate = true;
             duplicatedMethod.Name = originName;
             targetType.Methods.Add(duplicatedMethod);
             return duplicatedMethod;
@@ -95,33 +122,60 @@ namespace com.bbbirder.unityeditor {
             assemblyDefinition.MainModule.SymbolReader?.Dispose();
             assemblyDefinition.Dispose();
         }
-        static FieldDefinition AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){
+        static (FieldDefinition,MethodReference) AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){
             var injectionName = Settings.GetInjectedFieldName(methodName);
             var HasThis = targetMethod.HasThis;
             var Parameters = targetMethod.Parameters;
             var GenericParameters = targetMethod.GenericParameters;
             var CustomAttributes = targetMethod.CustomAttributes;
             var ReturnType = targetMethod.ReturnType;
+            var ReturnVoid = targetMethod.IsReturnVoid();
             //define delegate
-            var delegateParameters = new List<TypeReference>();
-            if(HasThis) delegateParameters.Add(targetType);
-            foreach(var p in Parameters) delegateParameters.Add(p.ParameterType);
-            var delegateType = targetType.Module.CreateDelegateType(Settings.GetDelegateTypeName(methodName),targetType,ReturnType,delegateParameters);
-            targetType.NestedTypes.Add(delegateType);
+            // var delegateParameters = new List<TypeReference>();
+            // if(HasThis) delegateParameters.Add(targetType);
+            // foreach(var p in Parameters) delegateParameters.Add(p.ParameterType);
+            // var delegateType = targetType.Module.CreateDelegateType(Settings.GetDelegateTypeName(methodName),targetType,ReturnType,delegateParameters);
+            // targetType.NestedTypes.Add(delegateType);
+            
+            var genName = targetMethod.IsReturnVoid()?"System.Action`":"System.Func`";
+            var genPCnt = Parameters.Count;
+            if(!ReturnVoid) genPCnt++;
+            if(HasThis) genPCnt++;
+            var rawGenType = targetType.Module.FindType(Type.GetType(genName+genPCnt));
+            var genType = targetType.Module.ImportReference(rawGenType);
+            var genInst = new GenericInstanceType(genType);
+            if(HasThis)
+                genInst.GenericArguments.Add(targetType);
+            foreach(var p in Parameters)
+                genInst.GenericArguments.Add(p.ParameterType);
+            if(!ReturnVoid)
+                genInst.GenericArguments.Add(ReturnType);
             //store fields
             var sfldInject = new FieldDefinition(injectionName,
                 FieldAttributes.Private|FieldAttributes.Static,
-                delegateType);
+                genInst);
             // var sfldOrigin = new FieldDefinition(originName,
             //     FieldAttributes.Private|FieldAttributes.Static|FieldAttributes.Assembly,
             //     targetType.Module.ImportReference(typeof(Delegate)));
+            // var resMth = genInst.Resolve();
+            var genMtd = rawGenType.FindMethod("Invoke");
+            // genMtd.DeclaringType = genInst;
+            var mnlMth = new MethodReference(genMtd.Name,genMtd.ReturnType,genInst){
+                ExplicitThis = false,
+                HasThis = true,
+                CallingConvention = genMtd.CallingConvention
+            };
+            foreach(var p in genMtd.Parameters)
+                mnlMth.Parameters.Add(p);
+
             targetType.Fields.Add(sfldInject);
-            return sfldInject;
+            return (sfldInject,mnlMth);
         }
+
         static void AddInjectionMethod(
             this TypeDefinition targetType,
             MethodDefinition targetMethod,MethodDefinition originalMethod,
-            FieldDefinition delegateField,string methodName
+            FieldDefinition delegateField,MethodReference fieldInvoke,string methodName
         ){
             var argidx = 0;
             var HasThis =           targetMethod.HasThis;
@@ -158,7 +212,10 @@ namespace com.bbbirder.unityeditor {
                 // if(pType.IsValueType)
                 //     ilProcessor.Append(Instruction.Create(OpCodes.Box,pType));
             }
-            ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,originalMethod));
+            if(HasThis)
+                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,originalMethod));
+            else
+                ilProcessor.Append(Instruction.Create(OpCodes.Call,originalMethod));
             // if(originalMethod.IsReturnVoid())
             //     ilProcessor.Append(Instruction.Create(OpCodes.Pop));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
@@ -176,7 +233,7 @@ namespace com.bbbirder.unityeditor {
                 //     ilProcessor.Append(Instruction.Create(OpCodes.Box,pType));
             }
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,
-                delegateType.FindMethod("Invoke")));
+                (fieldInvoke)));
             if(ReturnType.IsComplexValueType())
                 ilProcessor.Append(Instruction.Create(OpCodes.Box,ReturnType));
             
@@ -265,13 +322,48 @@ namespace com.bbbirder.unityeditor {
             => td.ToString()!=voidType.ToString() && !td.IsPrimitive;
         internal static Type GetUnderlyingType(this TypeReference td)
             => td.IsPrimitive ? Type.GetType(td.Name) : objType;
-        internal static MethodDefinition FindMethod(this TypeDefinition td,string methodName)
-            => td.Methods.FirstOrDefault(m=>m.Name==methodName);
-        internal static TypeReference ConvertType(this ModuleDefinition md,Type type){
-            return new TypeReference(type.Namespace,type.Name,md,md.TypeSystem.CoreLibrary);
+        internal static MethodReference FindMethod(this TypeDefinition td,string methodName)
+            => td.Module.ImportReference(td.Methods.FirstOrDefault(m=>m.Name==methodName));
+        internal static TypeDefinition FindType(this ModuleDefinition md,Type type){
+            HashSet<string> knownAssemblyNames = new();
+            List<ModuleDefinition> modules = new();
+            GetModules(md);
+            foreach(var m in modules){
+                var tp = m.GetType(type.Namespace,type.Name);
+                if(null != tp){
+                    return tp;
+                }
+            }
+            return null;
+            void GetModules(ModuleDefinition md){
+                if(knownAssemblyNames.Contains(md.FileName))
+                    return;
+                var refModules = md.AssemblyReferences
+                    .Select(an=>{
+                        try{
+                            return md.AssemblyResolver.Resolve(an).MainModule;
+                        }catch{
+                            return null;
+                        }
+                    })
+                    .Where(r=>r != null)
+                    .ToArray();
+                AddModule(md);
+                foreach(var m in refModules){
+                    GetModules(m);
+                }
+            }
+            void AddModule(ModuleDefinition md){
+                var fileName = md.FileName;
+                if(!knownAssemblyNames.Contains(fileName))
+                    modules.Add(md);
+                knownAssemblyNames.Add(fileName);
+            }
+            // return new TypeReference(type.Namespace,type.Name,md,md.TypeSystem.CoreLibrary);
         }
-        internal static TypeReference ConvertType<T>(this ModuleDefinition md){
-            return new TypeReference(typeof(T).Namespace,typeof(T).Name,md,md.TypeSystem.CoreLibrary);
+        internal static TypeReference FindType<T>(this ModuleDefinition md){
+            return FindType(md,typeof(T));
+            // return new TypeReference(typeof(T).Namespace,typeof(T).Name,md,md.TypeSystem.CoreLibrary);
         }
         internal static TypeDefinition CreateDelegateType(this ModuleDefinition assembly,string name,TypeDefinition declaringType,
                 TypeReference returnType, IEnumerable<TypeReference> parameters)
@@ -279,9 +371,9 @@ namespace com.bbbirder.unityeditor {
             var voidType = assembly.TypeSystem.Void;
             var objectType = assembly.TypeSystem.Object;
             var nativeIntType = assembly.TypeSystem.IntPtr;
-            var asyncResultType = assembly.ConvertType<IAsyncResult>();
-            var asyncCallbackType = assembly.ConvertType<AsyncCallback>();
-            var multicastDelegateType = assembly.ConvertType<MulticastDelegate>();
+            var asyncResultType = assembly.FindType<IAsyncResult>();
+            var asyncCallbackType = assembly.FindType<AsyncCallback>();
+            var multicastDelegateType = assembly.FindType<MulticastDelegate>();
 
             var DelegateTypeAttributes = TypeAttributes.NestedPublic | TypeAttributes.Sealed;
             var dt = new TypeDefinition("", name, DelegateTypeAttributes, multicastDelegateType);

@@ -1,44 +1,26 @@
 using System;
-using System.Runtime.CompilerServices;
-using com.bbbirder;
+using System.Reflection;
 
-namespace com.bbbirder.unity {
-    [AttributeUsage(AttributeTargets.Method)]
-    public class InjectionAttribute:DirectRetrieveAttribute{
-        public Type type {get;private set;}
-        public string methodName {get;private set;}
-        public string overwriteName {get;private set;}
-        public (string,int) codeLocation;
-        public InjectionAttribute(
-            Type type,string methodName,string overwriteName,
-            [CallerFilePath]string CallerFilePath = null,
-            [CallerLineNumber]int CallerLineNumber = 0
-        ) {
-            this.type = type;
-            this.methodName = methodName;
-            this.overwriteName = overwriteName;
-            this.codeLocation = (CallerFilePath,CallerLineNumber);
-        }
-        // public InjectionAttribute(Type type){
-        //     this.type = type;
+namespace com.bbbirder.unity{
+    public abstract class InjectionAttribute:DirectRetrieveAttribute{
+        public MethodInfo InjectedMethod {get;protected set;}
+        public MethodInfo FixingMethod {get;protected set;}
+        public Delegate FixingDelegate {get;protected set;}
+        /// <summary>
+        /// the delegate field to store origin method
+        /// </summary>
+        /// <value></value>
+        public FieldInfo OriginSavingField {get;protected set;}
+        /// <summary>
+        /// set this if OriginSavingField is not static
+        /// </summary>
+        /// <value></value>
+        public object OriginSavingTarget {get;protected set;}
+        
+        // public void Deconstruct(out MethodInfo injected,out MethodInfo fixing,out FieldInfo originSaving){
+        //     injected = InjectedMethod;
+        //     fixing = FixingMethod;
+        //     originSaving = OriginSavingField;
         // }
     }
-    // [AttributeUsage(AttributeTargets.Assembly,AllowMultiple = true)]
-    // public class DirectRetrieveAttribute:Attribute{
-    //     public Type type {get;private set;}
-    //     public string methodName {get;private set;}
-    //     #if NET7_0_OR_GREATER
-    //     public int memberIndex {get;private set;}
-    //     #endif
-    //     public DirectRetrieveAttribute(Type type, string methodName){
-    //         this.type = type;
-    //         this.methodName = methodName;
-    //     }
-    //     #if NET7_0_OR_GREATER
-    //     public DirectRetrieveAttribute(Type type, int memberIndex){
-    //         this.type = type;
-    //         this.memberIndex = memberIndex;
-    //     }
-    //     #endif
-    // }
 }

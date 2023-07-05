@@ -1,0 +1,63 @@
+// Dont Modify It: This is an Auto-Generated File
+using System;
+using System.Reflection;
+
+{{
+func get_pt
+    $cnt = $0
+    $format = $1
+    $spliter = $2
+    $result = ''
+    for $i in (1..$cnt)
+        $result += string.replace($format,'i',$i)
+        if $i!=$cnt
+            $result += $spliter
+        end
+    end
+    ret $result
+end
+}}
+namespace com.bbbirder.unity {
+    partial class DecoratorAttribute{
+    {{~ for cnt in 1..12 ~}}
+        {{~pt_gl = get_pt cnt 'Ti' ','~}}
+        {{~pt_vl = get_pt cnt 'ti' ','~}}
+        {{~pt_dl = get_pt cnt 'Ti _ti' ','~}}
+        Func<{{pt_gl}},R> UniversalFunc<{{pt_gl}},R>(MethodInfo mi){
+            {{~ for i in 1..cnt ~}}
+            T{{i}} t{{i}} = default;
+            {{~ end ~}}
+            var invocation = new InvocationInfo<R>(){
+                invoker = ()=>((Func<{{pt_gl}},R>)originFunc).Invoke({{pt_vl}}),
+                Method = mi,
+                argumentGetter = ()=>new object[]{ {{pt_vl}} }
+            };
+            return ({{pt_dl}})=>{
+                {{~ for i in 1..cnt ~}}
+                t{{i}} = _t{{i}};
+                {{~ end ~}}
+                return Decorate<R>(invocation);
+            };
+        }
+        Action<{{pt_gl}}> UniversalAction<{{pt_gl}}>(MethodInfo mi){
+            {{~ for i in 1..cnt ~}}
+            T{{i}} t{{i}} = default;
+            {{~ end ~}}
+            var invocation = new InvocationInfo<object>(){
+                invoker = ()=>{
+                    ((Action<{{pt_gl}}>)originFunc).Invoke({{pt_vl}});
+                    return null;
+                },
+                Method = mi,
+                argumentGetter = ()=>new object[]{ {{pt_vl}} }
+            };
+            return ({{pt_dl}})=>{
+                {{~ for i in 1..cnt ~}}
+                t{{i}} = _t{{i}};
+                {{~ end ~}}
+                Decorate<object>(invocation);
+            };
+        }
+    {{~ end ~}}
+    }
+}

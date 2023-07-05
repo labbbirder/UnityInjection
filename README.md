@@ -73,25 +73,41 @@ FixHelper.Install();// 查找所有注入标记，并使生效
 Debug.Log("hello"); //output: [msg] hello
 ```
 ### 装饰器
-值得一提的是，装饰器的调用是0GC，低开销的；实现只需要指定一个Attribute。这一点优于大多数代理类解决方案
+值得一提的是，装饰器的实现有以下优势：
+* 调用是0GC，低开销的
+* 实现只需要指定一个`DecoratorAttribute`
+* 支持装饰异步函数
 
-定义一个装饰器
+定义一个装饰器，需要继承自`DecoratorAttribute`，并实现`Decorate`方法
 ```csharp
 public class DebugInvocationAttribute:DecoratorAttribute
 {
     string info;
+    INotifyCompletion completion;
 
     public DebugInvocationAttribute(string _info)
     {
         info = _info;
     }
 
+    void OnCompleted()
+    {
+        Debug.Log("end "+info);
+    }
+
     protected override R Decorate<R>(InvocationInfo<R> invocation)
     {
-        Debug.Log("begin "+info);
-        // invoke original method
+        Debug.Log("begin "+info+string.Join(",",invocation.Arguments));
         var r = invocation.FastInvoke();
-        Debug.Log("end "+info);
+        if(IsAsyncMethod)
+        {
+            // delay on async method
+            invocation.GetAwaiter(r).OnCompleted(OnCompleted);
+        }
+        else
+        {
+            OnCompleted();
+        }
         return r;
     }
 }
@@ -112,11 +128,23 @@ public class Demo:MonoBehaviour{
         if(Input.GetKeyDown(KeyCode.A)){
             Work(2,"aka");
         }
+        if(Input.GetKeyDown(KeyCode.S)){
+            AsyncWork(2,"aka");
+        }
     }
 
+    //decorate a standard method
     [DebugInvocation("w1")]
     int Work(int i, string s){
         Debug.Log("do work");
+        return 123+i;
+    }
+
+    //decorate an async method
+    [DebugInvocation("aw2")]
+    async Task<int> AsyncWork(int i, string s){
+        Debug.Log("do a lot work");
+        await Task.Delay(1000);
         return 123+i;
     }
 }
@@ -134,3 +162,5 @@ UnityInjection在编译时织入，不用担心运行时兼容性
 
 ## Todo List
 1. 更多Unity版本测试，有问题提ISSUE附Unity版本，或者PR。
+2. 提供可选的混合模式：Editor下可以使用MonoHook更方便地注入。
+3. **支持泛型**（有需要则提前实现）

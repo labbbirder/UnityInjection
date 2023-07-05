@@ -6,7 +6,8 @@
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
   "dependencies": {
-    "com.bbbirder.directattribute": "1.0.1"
+    "com.bbbirder.directattribute": "1.0.1",
+    "com.unity.nuget.mono-cecil": "1.10.2"
   },
   "subtree": "UnityInjection",
   "scripts": {

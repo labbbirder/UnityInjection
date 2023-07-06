@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEditorInternal;
 using UnityEditor;
+using UnityEditor.Compilation;
 
 namespace com.bbbirder.unityeditor {
     public static class InjectHelper{
@@ -20,16 +21,23 @@ namespace com.bbbirder.unityeditor {
         /// <param name="inputAssemblyPath"></param>
         /// <param name="outputAssemblyPath"></param>
         /// <returns>is written</returns>
-        internal static bool InjectAssembly(InjectionAttribute[] injections, string inputAssemblyPath,string outputAssemblyPath) {
-
-            // var assemblySearchFolders = UnityInjectUtils.GetAssemblySearchFolders(isEditor, buildTarget);
+        internal static bool InjectAssembly(InjectionAttribute[] injections, string inputAssemblyPath,string outputAssemblyPath,bool isEditor,BuildTarget buildTarget) {
+            // set up assembly resolver
             var resolver = new DefaultAssemblyResolver();
+            var apiCompatibilityLevel = PlayerSettings.GetApiCompatibilityLevel(EditorUserBuildSettings.selectedBuildTargetGroup);
+            var assemblySearchFolders = UnityInjectUtils.GetAssemblySearchFolders(isEditor, buildTarget);
+            var systemAssemblyDirectories = CompilationPipeline.GetSystemAssemblyDirectories(apiCompatibilityLevel);
             resolver.AddSearchDirectory(Path.GetDirectoryName(outputAssemblyPath));
-            // foreach(var folder in assemblySearchFolders){
-            //    resolver.AddSearchDirectory(folder);
-            // }
+            foreach(var folder in assemblySearchFolders){
+               resolver.AddSearchDirectory(folder);
+            }
+            foreach(var folder in systemAssemblyDirectories){
+               resolver.AddSearchDirectory(folder);
+            }
+
             var IsEngineAssembly = Path.GetFullPath(inputAssemblyPath)
                 .StartsWith(Path.GetFullPath(EditorApplication.applicationContentsPath));
+
             var targetAssembly = AssemblyDefinition.ReadAssembly(inputAssemblyPath, new ReaderParameters(){
                 AssemblyResolver=resolver,
                 ReadingMode=ReadingMode.Immediate,
@@ -74,32 +82,15 @@ namespace com.bbbirder.unityeditor {
                 Settings.InjectedMarkName,
                 TypeAttributes.Class,
                 targetAssembly.MainModule.TypeSystem.Object);
-            
-            // var git = new GenericInstanceType(targetAssembly.MainModule.ConvertType(typeof(Action<,>)));
-            // git.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.String);
-            // git.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
-            // var fld_afaik_1 = new FieldDefinition("afaik", FieldAttributes.Public, git);
-			// InjectedMark.Fields.Add(fld_afaik_1);
-
-            // var git5 = new GenericInstanceType(targetAssembly.MainModule.ConvertType(typeof(Action<,,,,>)));
-            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
-            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
-            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.String);
-            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Single);
-            // git5.GenericArguments.Add(targetAssembly.MainModule.TypeSystem.Int32);
-            // var fld_afaik_5 = new FieldDefinition("afaik5", FieldAttributes.Public, git5);
-			// InjectedMark.Fields.Add(fld_afaik_5);
-
             targetAssembly.MainModule.Types.Add(InjectedMark);
 
 
             targetAssembly.Write(outputAssemblyPath,new WriterParameters(){
                 WriteSymbols = !IsEngineAssembly,
-                // WriteSymbols = File.Exists(Path.ChangeExtension(outputAssemblyPath,"pdb")),
-                // SymbolWriterProvider = new PortablePdbWriterProvider()
             });
             targetAssembly.Release();
             return true;
+            
             static bool IsSameType(Type t1,TypeDefinition t2){
                 var isSameNamespace = t1.Namespace==t2.Namespace;
                 if(string.IsNullOrEmpty(t1.Namespace) && string.IsNullOrEmpty(t2.Namespace)){

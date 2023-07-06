@@ -90,7 +90,7 @@ namespace com.bbbirder.unityeditor {
             });
             targetAssembly.Release();
             return true;
-            
+
             static bool IsSameType(Type t1,TypeDefinition t2){
                 var isSameNamespace = t1.Namespace==t2.Namespace;
                 if(string.IsNullOrEmpty(t1.Namespace) && string.IsNullOrEmpty(t2.Namespace)){
@@ -225,8 +225,10 @@ namespace com.bbbirder.unityeditor {
             }
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,
                 (fieldInvoke)));
-            if(ReturnType.IsComplexValueType())
-                ilProcessor.Append(Instruction.Create(OpCodes.Box,ReturnType));
+            
+            // Fixes: conditional boxing here is unnecessary
+            // if(ReturnType.IsComplexValueType())
+            //     ilProcessor.Append(Instruction.Create(OpCodes.Box,ReturnType));
             
             ilProcessor.Append(Instruction.Create(OpCodes.Nop));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));

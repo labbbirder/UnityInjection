@@ -83,7 +83,6 @@ Debug.Log("hello"); //output: [msg] hello
 public class DebugInvocationAttribute:DecoratorAttribute
 {
     string info;
-    INotifyCompletion completion;
 
     public DebugInvocationAttribute(string _info)
     {

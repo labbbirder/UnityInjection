@@ -63,7 +63,7 @@ namespace com.bbbirder.unity{
 
         public struct InvocationInfo<T>{
             internal Func<T> invoker;
-            internal Func<T,INotifyCompletion> awaiterGetter;
+            internal Func<INotifyCompletion> awaiterGetter;
             internal Func<object[]> argumentGetter;
 
             /// <summary>
@@ -99,15 +99,15 @@ namespace com.bbbirder.unity{
                     var GetMethod = result.GetType().GetMethod("GetAwaiter");
                     if(GetMethod is null) return null;
                     var metaMethod = this.GetType().GetMethod(nameof(MetaGetAwaiter),BindingFlags.NonPublic|BindingFlags.Instance);
-                    var metaGetter = metaMethod.MakeGenericMethod(GetMethod.ReturnType).Invoke(this,new []{GetMethod});
-                    awaiterGetter = (Func<T,INotifyCompletion>)metaGetter;
+                    var metaGetter = metaMethod.MakeGenericMethod(GetMethod.ReturnType).Invoke(this,new object[]{GetMethod,result});
+                    awaiterGetter = (Func<INotifyCompletion>)metaGetter;
                 }
                 if(awaiterGetter is null) return null;
-                return awaiterGetter(result);
+                return awaiterGetter();
             }
-            internal Func<T,INotifyCompletion> MetaGetAwaiter<N>(MethodInfo method) where N:INotifyCompletion{
-                var func = method.CreateDelegate(typeof(Func<T,N>)) as Func<T,N>;
-                return t=>func(t);
+            internal Func<INotifyCompletion> MetaGetAwaiter<N>(MethodInfo method,T target) where N:INotifyCompletion{
+                var func = method.CreateDelegate(typeof(Func<N>),target) as Func<N>;
+                return ()=>func();
             }
         }
         Func<R> UniversalFunc<R>(MethodInfo mi){

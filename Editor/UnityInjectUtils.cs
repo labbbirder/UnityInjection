@@ -23,23 +23,9 @@ namespace com.bbbirder.unityeditor {
         const string BACKUP_EXT = ".backup";
         
         [MenuItem("Tools/bbbirder/Inject for Editor")]
-        // [InitializeOnLoadMethod] 
         static void Inject(){
             InjectEditor(AppDomain.CurrentDomain.GetAssemblies());
         }
-        //TODO: check previous compiled asset & inject editor
-        // [InitializeOnLoadMethod] 
-        // [DidReloadScripts]
-        // static void TestInject() {
-        //     // if(typeof(UnityInjectUtils).Assembly.IsDynamic){
-        //     //     return;
-        //     // }
-        //     var assemblies = previousCompiledRecord.GetAssemblies();
-        //     if(assemblies.Length>0) {
-        //         InjectEditor(previousCompiledRecord.GetAssemblies());
-        //         //TODO: Automatically inject for editor
-        //     }
-        // }
         [InitializeOnLoadMethod]
         static void Install() {
             var previousCompiledAssemblies = new List<string>();
@@ -158,7 +144,7 @@ namespace com.bbbirder.unityeditor {
             // var replaceAssemblyPath = miReplace.DeclaringType.Assembly.Location;
             try{
                 var inputPath = IsEngineAssembly ? backPath : assemblyPath;
-                var isWritten = InjectHelper.InjectAssembly(injections,inputPath,assemblyPath);
+                var isWritten = InjectHelper.InjectAssembly(injections,inputPath,assemblyPath,isEditor,buildTarget);
 
                 if(isWritten) 
                     Debug.Log($"Inject success: {assemblyPath}");
@@ -184,18 +170,18 @@ namespace com.bbbirder.unityeditor {
         }
         //TODO : Restore
         //TODO : Partial restore on inject 
-        public static void RestoreEditor() {
-            // var backPath = assemblyPath+".backup";
-            // var existsBacked = File.Exists(backPath);
-            RestoreTargetMode(true);
-            RestoreTargetMode(false);
-            void RestoreTargetMode(bool isEditor){
-                var folders = GetAssemblySearchFolders(isEditor,activeBuildTarget);
-                foreach(var folder in folders){
-                    var backupFiles = Directory.GetFiles(folder,"*"+BACKUP_EXT);
-                }
-            }
-        }
+        // public static void RestoreEditor() {
+        //     // var backPath = assemblyPath+".backup";
+        //     // var existsBacked = File.Exists(backPath);
+        //     RestoreTargetMode(true);
+        //     RestoreTargetMode(false);
+        //     void RestoreTargetMode(bool isEditor){
+        //         var folders = GetAssemblySearchFolders(isEditor,activeBuildTarget);
+        //         foreach(var folder in folders){
+        //             var backupFiles = Directory.GetFiles(folder,"*"+BACKUP_EXT);
+        //         }
+        //     }
+        // }
         internal static string[] GetAssemblySearchFolders(bool isEditor,BuildTarget buildTarget) {
             return GetPreloadAssemblies(isEditor,buildTarget)
                 .Select(Path.GetDirectoryName)
@@ -211,44 +197,6 @@ namespace com.bbbirder.unityeditor {
                 .OfType<string>()
                 .ToArray();
         }
-
-        // public static bool IsSameName(this TypeReference left, TypeReference right)
-        // {
-        //     return left.FullName == right.FullName;
-        // }
-        public static bool IsApproximatelySameWith(this MethodDefinition left, MethodDefinition right)
-        {
-            // Debug.Log($"{left.Parameters.Count != right.Parameters.Count},{!left.ReturnType.IsSameName(right.ReturnType)},{left.HasThis != right.HasThis}");
-            // if (left.Parameters.Count != right.Parameters.Count
-            //             // || left.Name != right.Name
-            //             // || !left.ReturnType.IsSameName(right.ReturnType)
-            //             // || !left.DeclaringType.IsSameName(right.DeclaringType)
-            //             // || left.HasThis != right.HasThis
-            //             // || left.GenericParameters.Count != right.GenericParameters.Count
-            // )
-            // {
-            //     return false;
-            // }
-
-            // for (int i = 0; i < left.Parameters.Count; i++)
-            // {
-            //     if (left.Parameters[i].Attributes != right.Parameters[i].Attributes
-            //         || !left.Parameters[i].ParameterType.IsSameName(right.Parameters[i].ParameterType))
-            //     {
-            //         return false;
-            //     }
-            // }
-
-            // for (int i = 0; i < left.GenericParameters.Count; i++)
-            // {
-            //     if (left.GenericParameters[i].IsSameName(right.GenericParameters[i]))
-            //     {
-            //         return false;
-            //     }
-            // } 
-
-            return true;
-        }
         static object GetScriptAssemblySettings(){
             var t = t_EditorCompilationInterface??=GetType("UnityEditor.CoreModule","EditorCompilationInterface");
             var editorCompilation = t.GetProperty("Instance",bindingFlags).GetValue(null);
@@ -259,36 +207,38 @@ namespace com.bbbirder.unityeditor {
             if(state is null) throw new ("cannot get compile state from editorCompilation,Unity:"+Application.unityVersion);
             return state.GetMemberValue("Settings",true);
         }
+
         static object GetMemberValue(this object obj,string name,bool IgnoreCase = false){
             var flags = bindingFlags;
             if(IgnoreCase) flags |= BindingFlags.IgnoreCase; 
             var memberInfo = obj.GetType().GetMember(name,flags).FirstOrDefault();
-            if(memberInfo is null){
+            if(memberInfo is null)
                 return null;
                 // var fields = obj.GetType().GetFields(flags).Select(f=>"field:"+f.Name);
                 // var props = obj.GetType().GetProperties(flags).Select(f=>"prop:"+f.Name);
                 // Debug.Log(string.Join("\n",fields)+"\n"+string.Join("\n",props));
                 // throw new($"cannot find member {name} in {obj}");
-            }
-            if(memberInfo is FieldInfo fi){
+            
+            if(memberInfo is FieldInfo fi)
                 return fi.GetValue(obj);
-            }
-            if(memberInfo is PropertyInfo pi){
+            
+            if(memberInfo is PropertyInfo pi)
                 return pi.GetValue(obj);
-            }
-            if(memberInfo is MethodInfo mi){
+            
+            if(memberInfo is MethodInfo mi)
                 return mi.Invoke(obj,null);
-            }
+            
             return null;
         }
-        static Type GetType(string moduleName, string typeName)
-        {
+
+        static Type GetType(string moduleName, string typeName){
             return System.AppDomain.CurrentDomain.GetAssemblies()
                 .Where(a => a.FullName.StartsWith(moduleName+","))
                 .SelectMany(a => a.GetTypes())
                 .Where(t => t.Name.Equals(typeName))
                 .Single();
         }
+
         static Type t_EditorCompilationInterface;
         // /// <summary>
         // /// scripts recompiled during edtior mode

@@ -78,6 +78,8 @@ Debug.Log("hello"); //output: [msg] hello
 * 实现只需要指定一个`DecoratorAttribute`
 * 支持装饰异步函数
 
+下面的例子实现目标方法执行前和后打印信息
+
 定义一个装饰器，需要继承自`DecoratorAttribute`，并实现`Decorate`方法
 ```csharp
 public class DebugInvocationAttribute:DecoratorAttribute
@@ -97,6 +99,7 @@ public class DebugInvocationAttribute:DecoratorAttribute
     protected override R Decorate<R>(InvocationInfo<R> invocation)
     {
         Debug.Log("begin "+info+string.Join(",",invocation.Arguments));
+        // invoke original method
         var r = invocation.FastInvoke();
         if(IsAsyncMethod)
         {
@@ -157,7 +160,7 @@ UnityInjection在编译时织入，不用担心运行时兼容性
 如何注入：
 
   * 运行时：在打包的Link阶段修改DLL，如此使Runtime生效
-  * 编辑器时：菜单[Tools/bbbirder/inject for Editor]，手动使编辑器模式生效。
+  * 编辑器时：~~菜单[Tools/bbbirder/inject for Editor]，手动使编辑器模式生效。~~ 通常自动生效
 
 ## Todo List
 1. 更多Unity版本测试，有问题提ISSUE附Unity版本，或者PR。

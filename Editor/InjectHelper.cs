@@ -35,13 +35,13 @@ namespace com.bbbirder.unityeditor {
                resolver.AddSearchDirectory(folder);
             }
 
-            var IsEngineAssembly = Path.GetFullPath(inputAssemblyPath)
-                .StartsWith(Path.GetFullPath(EditorApplication.applicationContentsPath));
+            var IsPlayerAssembly = Path.GetFullPath(inputAssemblyPath).StartsWith(Path.GetFullPath("Library/"))
+                                || Path.GetFullPath(inputAssemblyPath).StartsWith(Path.GetFullPath("Temp/"));
 
             var targetAssembly = AssemblyDefinition.ReadAssembly(inputAssemblyPath, new ReaderParameters(){
                 AssemblyResolver=resolver,
                 ReadingMode=ReadingMode.Immediate,
-                ReadSymbols = !IsEngineAssembly,
+                ReadSymbols = IsPlayerAssembly,
                 InMemory = true,
             });
 
@@ -86,7 +86,7 @@ namespace com.bbbirder.unityeditor {
 
 
             targetAssembly.Write(outputAssemblyPath,new WriterParameters(){
-                WriteSymbols = !IsEngineAssembly,
+                WriteSymbols = IsPlayerAssembly,
             });
             targetAssembly.Release();
             return true;

@@ -43,13 +43,8 @@ namespace com.bbbirder.unityeditor {
             };
             //TODO: write to previous compiled asset
             CompilationPipeline.assemblyCompilationFinished += (path,msg)=>{
-                // var compiledAssembly = AppDomain.CurrentDomain.GetAssemblies().Where(a=>a.Location==path).Single();
-                // if(compiledAssembly.MayContainsInjection()) { 
-                //     ShouldReload = true; 
-                // }
                 previousCompiledAssemblies.Add(path);
                 // Debug.Log("compile assembly "+path);
-            //     foreach(var m in msg) Debug.Log(m);
             };
             CompilationPipeline.compilationFinished += (o)=>{
                 var settings = GetScriptAssemblySettings();
@@ -69,6 +64,7 @@ namespace com.bbbirder.unityeditor {
                     }
                 }
             };
+
         }
 
         public static void InjectEditor(Assembly[] assemblies) {

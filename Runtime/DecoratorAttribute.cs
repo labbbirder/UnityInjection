@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace com.bbbirder.unity{
     [AttributeUsage(AttributeTargets.Method)]
@@ -64,6 +65,7 @@ namespace com.bbbirder.unity{
         public struct InvocationInfo<T>{
             internal Func<T> invoker;
             internal Func<INotifyCompletion> awaiterGetter;
+            internal Func<bool> awaiterCompletedChecker;
             internal Func<object[]> argumentGetter;
 
             /// <summary>
@@ -104,6 +106,21 @@ namespace com.bbbirder.unity{
                 }
                 if(awaiterGetter is null) return null;
                 return awaiterGetter();
+            }
+
+            public bool IsAwaiterCompleted(INotifyCompletion awaiter){
+                string memberName = "IsCompleted";
+                Assert.IsNotNull(awaiter,"awaiter is null");
+                if(awaiterCompletedChecker is null){
+                    var awaiterType = awaiter.GetType();
+                    var propChecker = awaiterType.GetProperty(memberName);
+
+                    if(propChecker != null){
+                        awaiterCompletedChecker = (Func<bool>)propChecker.GetMethod.CreateDelegate(typeof(Func<bool>),awaiter);
+                    }
+                }
+                Assert.IsNotNull(awaiterCompletedChecker,"cannot create delegate for "+memberName);
+                return awaiterCompletedChecker.Invoke();
             }
             internal Func<INotifyCompletion> MetaGetAwaiter<N>(MethodInfo method,T target) where N:INotifyCompletion{
                 var func = method.CreateDelegate(typeof(Func<N>),target) as Func<N>;

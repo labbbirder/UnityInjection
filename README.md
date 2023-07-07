@@ -126,12 +126,13 @@ public class Demo:MonoBehaviour{
         FixHelper.Install();
     }
 
-    void Update(){
+    async void Update(){
         if(Input.GetKeyDown(KeyCode.A)){
-            Work(2,"aka");
+            Work(1,"foo");
         }
         if(Input.GetKeyDown(KeyCode.S)){
-            AsyncWork(2,"aka");
+            await AsyncWork(2,"bar");
+            print("return");
         }
     }
 
@@ -151,6 +152,42 @@ public class Demo:MonoBehaviour{
     }
 }
 ```
+### 异步方法补充说明
+async方法有一个值得斟酌的问题。如果上例的Task换成UniTask。则不会打印return，这是因为Decrote方法覆盖了原本的continuationAction（这与UniTask的实现有关）。使用如下Decorate方法可以解决所有此类问题：
+```csharp
+    protected override R Decorate<R>(InvocationInfo<R> invocation)
+    {
+        Debug.Log("begin "+info+string.Join(",",invocation.Arguments));
+        var r = invocation.FastInvoke();
+        if(IsAsyncMethod)
+        {
+            // delay when its an async method
+            var awaiter = invocation.GetAwaiter(r);
+            UniTask.Create(async()=>
+            {
+                try
+                {
+                    while(!invocation.IsAwaiterCompleted(awaiter))
+                        await UniTask.Yield();
+                }
+                catch {}
+                finally
+                {
+                    OnCompleted();
+                }
+            });
+            // invocation.GetAwaiter(r).OnCompleted(OnCompleted);
+        }
+        else
+        {
+            OnCompleted();
+        }
+        return r;
+    }
+```
+上例使用`UniTask.Create`创建了一个轮询器，可以使用其他类似的轮询方法，如自定义MonoBehaviour。一旦`IsAwaiterCompleted`检查结束，立即执行自定义的`OnCompleted`方法。
+
+因为Unity没有官方支持的异步轮询接口，基于“此库只做自己该做的”原则，这里只是给出提示。
 
 更多使用方法参考附带的Sample工程
 

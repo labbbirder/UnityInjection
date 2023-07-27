@@ -185,11 +185,21 @@ async方法有一个值得斟酌的问题。如果上例的Task换成UniTask。�
         return r;
     }
 ```
-上例使用`UniTask.Create`创建了一个轮询器，可以使用其他类似的轮询方法，如自定义MonoBehaviour。一旦`IsAwaiterCompleted`检查结束，立即执行自定义的`OnCompleted`方法。
+上例使用`UniTask.Create`创建了一个Timer，可以使用其他类似的方法，如自定义MonoBehaviour等。一旦`IsAwaiterCompleted`检查结束，立即执行自定义的`OnCompleted`方法。
 
-因为Unity没有官方支持的异步轮询接口，基于“此库只做自己该做的”原则，这里只是给出提示。
+因为Unity没有官方支持的Timer功能，基于“此库只做自己该做的”原则，这里只是给出提示。
 
 更多使用方法参考附带的Sample工程
+
+## Possible Problems
+
+
+|Problem|Reason|Solution|
+|:-:|:-|:-|
+|文档示例中的异步方法无法打印完整|WebGL平台不支持多线程|文档中使用的是Task，改成UniTask或其他方式即可|
+|注入时未搜索到标记的方法|`Managed Stripping Level`过高，Attribute被移除|降低Stripping Level或 [保留代码](https://docs.unity3d.com/Manual/ManagedCodeStripping.html)|
+
+
 
 ## How it works
 UnityInjection在编译时织入，不用担心运行时兼容性

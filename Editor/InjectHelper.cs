@@ -118,7 +118,7 @@ namespace com.bbbirder.unityeditor {
             var HasThis = targetMethod.HasThis;
             var Parameters = targetMethod.Parameters;
             var GenericParameters = targetMethod.GenericParameters;
-            var CustomAttributes = targetMethod.CustomAttributes;
+            // var CustomAttributes = targetMethod.CustomAttributes;
             var ReturnType = targetMethod.ReturnType;
             var ReturnVoid = targetMethod.IsReturnVoid();
             //define delegate
@@ -275,7 +275,7 @@ namespace com.bbbirder.unityeditor {
                 CallingConvention = source.CallingConvention
             };
             foreach (var p in source.Parameters)       result.Parameters.Add(p);
-            foreach (var p in source.CustomAttributes) result.CustomAttributes.Add(p);
+            // foreach (var p in source.CustomAttributes) result.CustomAttributes.Add(p);
             foreach (var p in source.GenericParameters)result.GenericParameters.Add(p);
             if (source.HasBody)
             {

@@ -19,29 +19,30 @@ namespace com.bbbirder.unity {
             return mi.DeclaringType.GetMethod(oriName,bindingFlags);
         }
 
-        static void FixMethod(InjectionAttribute injection){
+        static void FixMethod(InjectionInfo injection){
             var targetMethod = injection.InjectedMethod;
             var fixingMethod = injection.FixingMethod;
             var fixingDelegate = injection.FixingDelegate;
-            var originSavingField = injection.OriginSavingField;
-            var originSavingTarget = injection.OriginSavingTarget;
+            // var originSavingField = injection.OriginSavingField;
+            // var originSavingTarget = injection.OriginSavingTarget;
             var targetType = targetMethod.DeclaringType;
             var methodName = targetMethod.Name;
             // set static field value
             var sfld = targetType.GetField(Settings.GetInjectedFieldName(methodName),bindingFlags);
             try{
                 if(sfld is null) {
-                    logError($"Unable to fix target method {methodName} in type {targetType}, this may caused by injection issues." 
+                    throw new($"Unable to fix target method {methodName} in type {targetType}, this may caused by injection issues." 
                     + " Try execute menu [Tools/bbbirder/Inject for Editor] if you see this in Editor mode");
                 }
                 var @delegate = fixingDelegate ?? fixingMethod.CreateDelegate(sfld.FieldType);
                 if(@delegate is null){
-                    logError($"Unable to create delegate for replace method {fixingMethod}, whose target is {methodName}");
+                    throw new($"Unable to create delegate for replace method {fixingMethod}, whose target is {methodName}");
                 }
                 sfld.SetValue(null,@delegate);
             } catch (Exception e){
                 var msg = $"error on create and set delegate for injection method {methodName}\n{e.Message}\n{e.StackTrace}";
-                logError(msg);
+                Debug.LogError(msg);
+                throw;
             }
 
             // set overwrite origin field
@@ -50,29 +51,39 @@ namespace com.bbbirder.unity {
                 try {
                     var oriDelegate = originMethod.CreateDelegate(sfld.FieldType);
                     if(oriDelegate is null){
-                        logError($"create original delegate for {methodName} failed");
+                        throw new($"create original delegate for {methodName} failed");
                     }
-                    originSavingField.SetValue(originSavingTarget,oriDelegate);
+                    injection.OriginReceiver?.Invoke(oriDelegate);
+                    // originSavingField.SetValue(originSavingTarget,oriDelegate);
                 } catch (Exception e) {
                     var msg = $"error on create and set delegate for original method {methodName}\n{e.Message}\n{e.StackTrace}";
-                    logError(msg);
+                    Debug.LogError(msg);
+                    throw;
                 }
             // }
-            void logError(string message){
-                throw new(message);
-            }
+            // void logError(string message){
+            //     throw new(message);
+            // }
         }
         /// <summary>
         /// Get all injections in current domain.
         /// </summary>
         /// <param name="assemblies">The assemblies to search in. All loaded assemblies if omitted</param>
         /// <returns></returns>
-        public static InjectionAttribute[] GetAllInjections(Assembly[] assemblies=null) {
+        public static InjectionInfo[] GetAllInjections(Assembly[] assemblies=null) {
             assemblies??=AppDomain.CurrentDomain.GetAssemblies();
             var injections =  assemblies
                 // .Where(a=>a.MayContainsInjection()) 
                 .SelectMany(a=>Retriever.GetAllAttributes<InjectionAttribute>(a))
+                .SelectMany(attr=>attr.ProvideInjections())
                 .ToArray();
+            var injections2 = assemblies
+                .SelectMany(a=>Retriever.GetAllSubtypes<IInjection>(a))
+                .Where(type=>!type.IsInterface && !type.IsAbstract)
+                .Select(type=>System.Activator.CreateInstance(type) as IInjection)
+                .SelectMany(ii=>ii.ProvideInjections())
+                .ToArray();
+            injections = injections.Concat(injections2).ToArray();
             return injections;
         }
         // public static T GetRawCall<T>(Type t,string methodName) where T:MulticastDelegate{
@@ -85,13 +96,6 @@ namespace com.bbbirder.unity {
         //     }
         //     return (T)call;
         // }
-
-        // static bool MayContainsInjection(this Assembly assembly) {
-        //     checkedAssemblyName ??= typeof(InjectionAttribute).Assembly.GetName().ToString();
-        //     return assembly.GetReferencedAssemblies()
-        //         .Any(a => a.ToString() == checkedAssemblyName);
-        // }
-
         public static string GetAssemblyPath(this Assembly assembly)
         {
             if (assembly == null)
@@ -144,8 +148,8 @@ namespace com.bbbirder.unity {
             return null;
         }
 
-        static InjectionAttribute[] m_allInjections;
-        public static InjectionAttribute[] allInjections=>m_allInjections ??= GetAllInjections();
+        static InjectionInfo[] m_allInjections;
+        public static InjectionInfo[] allInjections=>m_allInjections ??= GetAllInjections();
 
         static string checkedAssemblyName = null;
         static BindingFlags bindingFlags = 0

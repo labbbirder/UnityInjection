@@ -70,8 +70,13 @@ namespace com.bbbirder.unityeditor {
         public static void InjectEditor(Assembly[] assemblies) {
             var allInjections = FixHelper.allInjections;
             var freshInjections = FixHelper.GetAllInjections(assemblies);
-            var freshAssemblies = freshInjections.Select(inj=>inj.InjectedMethod.DeclaringType.Assembly).Distinct().ToHashSet();
-            var outcomeInjections = allInjections.Where(inj=>freshAssemblies.Contains(inj.InjectedMethod.DeclaringType.Assembly)).ToArray();
+            var freshAssemblies = freshInjections
+                .Select(inj=>inj.InjectedMethod.DeclaringType.Assembly)
+                .Distinct().
+                ToHashSet();
+            var outcomeInjections = allInjections
+                .Where(inj=>freshAssemblies.Contains(inj.InjectedMethod.DeclaringType.Assembly))
+                .ToArray();
             Debug.Log($"auto inject {allInjections.Length} injections, {outcomeInjections.Length} to inject");
             if(outcomeInjections.Length>0){
                 var isWritten = InjectTargetMode(outcomeInjections,true,activeBuildTarget);
@@ -91,7 +96,7 @@ namespace com.bbbirder.unityeditor {
             InjectTargetMode(FixHelper.allInjections,false,activeBuildTarget);
         }
 
-        static bool InjectTargetMode(InjectionAttribute[] injections,bool isEditor, BuildTarget buildTarget) {
+        static bool InjectTargetMode(InjectionInfo[] injections,bool isEditor, BuildTarget buildTarget) {
             var group = injections.GroupBy(inj=>inj.InjectedMethod.DeclaringType.Assembly);
             var isWritten = false;
             foreach(var g in group){
@@ -121,7 +126,7 @@ namespace com.bbbirder.unityeditor {
         static string GetEditorAssemblyPath(string assemblyPath)
             => assemblyPath;
         
-        static bool VisitAssembly(string assemblyPath,InjectionAttribute[] injections,bool isEditor,BuildTarget buildTarget) {
+        static bool VisitAssembly(string assemblyPath,InjectionInfo[] injections,bool isEditor,BuildTarget buildTarget) {
             var backPath = assemblyPath + BACKUP_EXT;
             var IsEngineAssembly = Path.GetFullPath(assemblyPath)
                 .StartsWith(Path.GetFullPath(EditorApplication.applicationContentsPath));

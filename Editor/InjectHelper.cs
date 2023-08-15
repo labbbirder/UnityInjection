@@ -21,7 +21,7 @@ namespace com.bbbirder.unityeditor {
         /// <param name="inputAssemblyPath"></param>
         /// <param name="outputAssemblyPath"></param>
         /// <returns>is written</returns>
-        internal static bool InjectAssembly(InjectionAttribute[] injections, string inputAssemblyPath,string outputAssemblyPath,bool isEditor,BuildTarget buildTarget) {
+        internal static bool InjectAssembly(InjectionInfo[] injections, string inputAssemblyPath,string outputAssemblyPath,bool isEditor,BuildTarget buildTarget) {
             // set up assembly resolver
             var resolver = new DefaultAssemblyResolver();
             var apiCompatibilityLevel = PlayerSettings.GetApiCompatibilityLevel(EditorUserBuildSettings.selectedBuildTargetGroup);

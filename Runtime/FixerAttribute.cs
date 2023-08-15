@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -13,6 +14,7 @@ namespace com.bbbirder.unity
         public Type InjectType { get; private set; }
         public string MethodName { get; private set; }
         public string OverwriteName { get; private set; }
+        
         public FixerAttribute(
             Type type, string methodName, string overwriteName
         )
@@ -21,14 +23,25 @@ namespace com.bbbirder.unity
             MethodName = methodName;
             OverwriteName = overwriteName;
         }
+
+        public override IEnumerable<InjectionInfo> ProvideInjections()
+        {
+            yield return new(){
+                InjectedMethod = InjectType.GetMember(MethodName, bindingFlags)
+                    .OfType<MethodInfo>()
+                    .FirstOrDefault(),
+                FixingMethod = targetMember as MethodInfo,
+                OriginReceiver = f=>{
+                    targetType.GetField(OverwriteName, bindingFlags).SetValue(null,f);
+                },
+            };
+        }
+
         public override void OnReceiveTarget()
         {
-            this.InjectedMethod = InjectType.GetMember(MethodName, bindingFlags)
-                .OfType<MethodInfo>()
-                .FirstOrDefault();
-            this.FixingMethod = targetMember as MethodInfo;
-            this.OriginSavingField = targetType.GetField(OverwriteName, bindingFlags);
+
         }
+
         static BindingFlags bindingFlags = 0
             | BindingFlags.Static
             | BindingFlags.Instance

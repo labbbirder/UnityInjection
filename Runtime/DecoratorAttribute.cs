@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -20,10 +21,11 @@ namespace com.bbbirder.unity{
         public bool IsAsyncMethod
             => m_IsAsyncMethod ??= targetMember.GetCustomAttribute<AsyncStateMachineAttribute>()!=null;
 
-        public override void OnReceiveTarget(){
-            InjectedMethod = this.targetMember as MethodInfo;
-            OriginSavingField = ThisType.GetField(nameof(originFunc),BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static);
-            OriginSavingTarget = this;
+        public override IEnumerable<InjectionInfo> ProvideInjections()
+        {
+            var InjectedMethod = this.targetMember as MethodInfo;
+            var OriginSavingField = ThisType.GetField(nameof(originFunc),BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static);
+            var OriginSavingTarget = this;
 
             var originMethod = FixHelper.GetOriginMethodFor(InjectedMethod);
             var HasReturn = InjectedMethod.ReturnType!=typeof(void);
@@ -45,7 +47,7 @@ namespace com.bbbirder.unity{
             );
             if(universalMethod is null){
                 Debug.LogException(new($"cannot find ${methodName} with generic ${GenericArgumentCount}"));
-                return;
+                yield break;
             }
 
             // get generic instance paramters
@@ -59,7 +61,17 @@ namespace com.bbbirder.unity{
             var fixingFunc = universalMethod.MakeGenericMethod(Parameters.ToArray())
             .Invoke(this,new object[] {originMethod}) as Delegate;
 
-            FixingDelegate = fixingFunc;
+            var FixingDelegate = fixingFunc;
+            
+            yield return new(){
+                InjectedMethod = InjectedMethod,
+                FixingDelegate = FixingDelegate,
+                OriginReceiver = f=>{
+                    originFunc = (MulticastDelegate)f;
+                },
+            };
+        }
+        public override void OnReceiveTarget(){
         }
 
         public struct InvocationInfo<T>{

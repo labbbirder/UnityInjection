@@ -2,7 +2,8 @@
     "name": "com.bbbirder.injection.Editor",
     "rootNamespace": "",
     "references": [
-        "com.bbbirder.injection"
+        "com.bbbirder.injection",
+        "com.bbbirder.directattribute"
     ],
     "includePlatforms": [
         "Editor"

@@ -1,7 +1,7 @@
 using System.Text;
 
 namespace com.bbbirder.unity {
-    public class Settings{
+    public static class Settings{
         public const string InjectedMarkNamespace = "com.bbbirder";
         public const string InjectedMarkName = "__bbbirder_Injected";
         public static string GetDelegateTypeName(string methodName)

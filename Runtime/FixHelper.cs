@@ -86,16 +86,7 @@ namespace com.bbbirder.unity {
             injections = injections.Concat(injections2).ToArray();
             return injections;
         }
-        // public static T GetRawCall<T>(Type t,string methodName) where T:MulticastDelegate{
-        //     var key = (t,methodName);
-        //     if(!s_rawMethodInfos.TryGetValue(key,out var mi)){
-        //         throw new($"there is no injected method: {methodName} on type:{t}");
-        //     }
-        //     if(!s_rawCalls.TryGetValue(key,out var call)){
-        //         call = s_rawCalls[key] = mi.CreateDelegate(typeof(T));
-        //     }
-        //     return (T)call;
-        // }
+
         public static string GetAssemblyPath(this Assembly assembly)
         {
             if (assembly == null)
@@ -122,7 +113,7 @@ namespace com.bbbirder.unity {
                 }
                 if (!Path.IsPathRooted(codeBase))
                 {
-                    codeBase = ((!File.Exists("/" + codeBase)) ? Path.GetFullPath(codeBase) : ("/" + codeBase));
+                    codeBase = (!File.Exists("/" + codeBase)) ? Path.GetFullPath(codeBase) : ("/" + codeBase);
                 }
                 if (File.Exists(codeBase))
                 {
@@ -151,7 +142,7 @@ namespace com.bbbirder.unity {
         static InjectionInfo[] m_allInjections;
         public static InjectionInfo[] allInjections=>m_allInjections ??= GetAllInjections();
 
-        static string checkedAssemblyName = null;
+        // static string checkedAssemblyName = null;
         static BindingFlags bindingFlags = 0
             | BindingFlags.Static
             | BindingFlags.Instance

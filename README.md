@@ -198,6 +198,8 @@ async方法有一个值得斟酌的问题。如果上例的Task换成UniTask。�
 |:-:|:-|:-|
 |文档示例中的异步方法无法打印完整|WebGL平台不支持多线程|文档中使用的是Task，改成UniTask或其他方式即可|
 |注入时未搜索到标记的方法|`Managed Stripping Level`过高，Attribute被移除|降低Stripping Level或 [保留代码](https://docs.unity3d.com/Manual/ManagedCodeStripping.html)|
+|注入时报`UnauthorizedAccessException`|文件访问权限不够|管理员运行 或 修改目标文件夹的安全设置（属性-安全-编辑，添加当前用户的完全控制）|
+
 
 
 

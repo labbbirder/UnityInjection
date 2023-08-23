@@ -17,10 +17,13 @@ using com.bbbirder.unity;
 using Assembly = System.Reflection.Assembly;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
+using System.Threading.Tasks;
+using UnityEngine.TestTools.Constraints;
 
 namespace com.bbbirder.unityeditor {
     public static class UnityInjectUtils{
         const string BACKUP_EXT = ".backup";
+        public static bool IsEditorBusy=>EditorApplication.isCompiling||EditorApplication.isUpdating;
         
         [MenuItem("Tools/bbbirder/Inject for Editor")]
         static void Inject(){
@@ -30,6 +33,7 @@ namespace com.bbbirder.unityeditor {
         static void Install() {
             var previousCompiledAssemblies = new List<string>();
             CompilationPipeline.compilationStarted += (o)=>{
+
                 var settings = GetScriptAssemblySettings();
                 if(settings is null){
                     Debug.LogError("cannot get BeeScriptCompilationState, Unity Version"+Application.unityVersion);
@@ -53,18 +57,27 @@ namespace com.bbbirder.unityeditor {
                     return;
                 }
                 var BuildingForEditor = (bool)settings.GetMemberValue("BuildingForEditor",true);
-                previousCompiledRecord.assemblyPathes = previousCompiledAssemblies.ToArray();
+                previousCompiledRecord.assemblyPathes = previousCompiledAssemblies.ToList();
                 previousCompiledRecord.SaveAsset(); 
                 if(!BuildingForEditor){
                     InjectRuntime();
-                }else{
-                    var assemblies = previousCompiledRecord.GetAssemblies();
-                    if(assemblies.Length>0) {
-                        InjectEditor(previousCompiledRecord.GetAssemblies());
-                    }
                 }
             };
-
+            EditorApplication.delayCall += InjectEditorDelayed;
+            void InjectEditorDelayed(){
+                if(IsEditorBusy){
+                    EditorApplication.delayCall -= InjectEditorDelayed;
+                    EditorApplication.delayCall += InjectEditorDelayed;
+                    return;
+                }
+                
+                var assemblies = previousCompiledRecord.GetAssemblies();
+                previousCompiledRecord.assemblyPathes.Clear();
+                previousCompiledRecord.SaveAsset(); 
+                if(assemblies.Length>0) {
+                    InjectEditor(assemblies);
+                }
+            }
         }
 
         public static void InjectEditor(Assembly[] assemblies) {

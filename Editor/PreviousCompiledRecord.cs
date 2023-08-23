@@ -7,12 +7,13 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using com.bbbirder.unity;
+using System.Collections.Generic;
 
 namespace com.bbbirder.unityeditor {
     public class PreviousCompiledRecord:ScriptableObject{
         const string savePath = "Temp/PreviousCompiledRecord.asset";
         [SerializeField]
-        public string[] assemblyPathes = new string[]{};
+        public List<string> assemblyPathes = new();
         static PreviousCompiledRecord m_Instance;
         public static PreviousCompiledRecord Instance {
             get{

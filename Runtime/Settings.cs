@@ -3,7 +3,7 @@ using System.Text;
 namespace com.bbbirder.unity {
     public static class Settings{
         public const string InjectedMarkNamespace = "com.bbbirder";
-        public const string InjectedMarkName = "__bbbirder_Injected";
+        public const string InjectedMarkName = "InjectedMarkAttribute";
         public static string GetDelegateTypeName(string methodName)
             => strBuilder.Clear().Append("__").Append(methodName).Append("Delegate").ToString();
 

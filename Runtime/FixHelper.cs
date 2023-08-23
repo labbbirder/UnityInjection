@@ -14,6 +14,15 @@ namespace com.bbbirder.unity {
             }
             Debug.Log($"fixed {allInjections.Length} injections successfully!");
         }
+        /// <summary>
+        /// check if the assembly of target type is injected
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public static bool IsInjected(Type type){
+            var mark = type.Assembly.GetType($"{Settings.InjectedMarkNamespace}.{Settings.InjectedMarkName}");
+            return mark != null;
+        }
         public static MethodInfo GetOriginMethodFor(MethodInfo mi){
             var oriName = Settings.GetOriginMethodName(mi.Name);
             return mi.DeclaringType.GetMethod(oriName,bindingFlags);

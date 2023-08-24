@@ -23,7 +23,6 @@ using UnityEngine.TestTools.Constraints;
 namespace com.bbbirder.unityeditor {
     public static class UnityInjectUtils{
         const string BACKUP_EXT = ".backup";
-        public static bool IsEditorBusy=>EditorApplication.isCompiling||EditorApplication.isUpdating;
         
         [MenuItem("Tools/bbbirder/Inject for Editor")]
         static void Inject(){
@@ -65,6 +64,9 @@ namespace com.bbbirder.unityeditor {
             };
             EditorApplication.delayCall += InjectEditorDelayed;
             void InjectEditorDelayed(){
+                var IsEditorBusy = false;
+                IsEditorBusy |= EditorApplication.isCompiling;
+                IsEditorBusy |= EditorApplication.isUpdating;
                 if(IsEditorBusy){
                     EditorApplication.delayCall -= InjectEditorDelayed;
                     EditorApplication.delayCall += InjectEditorDelayed;

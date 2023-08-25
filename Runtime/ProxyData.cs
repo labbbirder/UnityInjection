@@ -68,6 +68,15 @@ namespace com.bbbirder.unity
                 o.OnSetProperty?.Invoke(name);
             };
         }
+        
+        /// <summary>
+        /// whether this type of data is properly injected and fixed
+        /// </summary>
+        /// <returns></returns>
+        public bool IsFixed(){
+            return FixHelper.IsInjected(GetType());
+        }
+
         public IEnumerable<InjectionInfo> ProvideInjections()
         {
             var targetType = this.GetType();

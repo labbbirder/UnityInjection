@@ -10,6 +10,7 @@ namespace com.bbbirder.unity
     {
 
     }
+
     public abstract class ProxyData : IProxyData
     {
         static readonly BindingFlags bindingFlags = 0
@@ -18,8 +19,31 @@ namespace com.bbbirder.unity
             | BindingFlags.Public
             | BindingFlags.DeclaredOnly
             ;
-        protected Dictionary<string, Delegate> getters = new();
-        protected Dictionary<string, Delegate> setters = new();
+        static Dictionary<Type, Dictionary<string, Delegate>> s_AllGetters = new();
+        static Dictionary<Type, Dictionary<string, Delegate>> s_AllSetters = new();
+        protected Dictionary<string, Delegate> getters
+        {
+            get
+            {
+                var type = GetType();
+                if (!s_AllGetters.TryGetValue(type, out var result))
+                {
+                    result = s_AllGetters[type] = new();
+                }
+                return result;
+            }
+        }        protected Dictionary<string, Delegate> setters
+        {
+            get
+            {
+                var type = GetType();
+                if (!s_AllSetters.TryGetValue(type, out var result))
+                {
+                    result = s_AllSetters[type] = new();
+                }
+                return result;
+            }
+        }
         public Action<string> OnSetProperty { get; set; }
         public Action<string> OnGetProperty { get; set; }
         Func<C, T> ProxyGet<C, T>(string name) where C : ProxyData

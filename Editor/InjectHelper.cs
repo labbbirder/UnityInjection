@@ -57,9 +57,7 @@ namespace com.bbbirder.unityeditor {
             foreach(var injection in injections){
                 var type = injection.InjectedMethod.DeclaringType;
                 var methodName = injection.InjectedMethod.Name;
-                var targetType = targetAssembly.MainModule.Types
-                    .Where(t => IsSameType(type,t))
-                    .SingleOrDefault();
+                var targetType = GetCorrespondingType(targetAssembly.MainModule,type);
                 if(targetType is null){
                     throw new($"Cannot find Type `{type}` in target assembly {inputAssemblyPath}");
                 }
@@ -90,13 +88,23 @@ namespace com.bbbirder.unityeditor {
             });
             targetAssembly.Release();
             return true;
-
-            static bool IsSameType(Type t1,TypeDefinition t2){
-                var isSameNamespace = t1.Namespace==t2.Namespace;
-                if(string.IsNullOrEmpty(t1.Namespace) && string.IsNullOrEmpty(t2.Namespace)){
-                    isSameNamespace = true;
+            static TypeDefinition GetCorrespondingType(ModuleDefinition module, Type t1){
+                var typeDefinition = default(TypeDefinition);
+                foreach(var type in GetContainingTypes(t1).Reverse()){
+                    if(typeDefinition is null){
+                        typeDefinition = module.Types.FirstOrDefault(t=>type.FullName==t.FullName);
+                    }else{
+                        typeDefinition = typeDefinition.NestedTypes.FirstOrDefault(t=>t.Name == type.Name);
+                    }
+                    if(typeDefinition is null) return null;
                 }
-                return t1.Name==t2.Name && isSameNamespace;
+                return typeDefinition;
+                static IEnumerable<Type> GetContainingTypes(Type type){
+                    while(type!=null){
+                        yield return type;
+                        type = type.DeclaringType;
+                    }
+                }
             }
         }
         static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType,MethodDefinition targetMethod){

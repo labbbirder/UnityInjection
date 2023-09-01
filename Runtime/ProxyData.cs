@@ -19,6 +19,7 @@ namespace com.bbbirder.unity
             | BindingFlags.Public
             | BindingFlags.DeclaredOnly
             ;
+        // static bool m_IsFixed {get;set;}
         static Dictionary<Type, Dictionary<string, Delegate>> s_AllGetters = new();
         static Dictionary<Type, Dictionary<string, Delegate>> s_AllSetters = new();
         protected Dictionary<string, Delegate> getters
@@ -32,7 +33,8 @@ namespace com.bbbirder.unity
                 }
                 return result;
             }
-        }        protected Dictionary<string, Delegate> setters
+        }
+        protected Dictionary<string, Delegate> setters
         {
             get
             {
@@ -68,12 +70,14 @@ namespace com.bbbirder.unity
                 o.OnSetProperty?.Invoke(name);
             };
         }
-        
+
         /// <summary>
         /// whether this type of data is properly injected and fixed
         /// </summary>
         /// <returns></returns>
         public bool IsFixed(){
+            // Debug.Log(m_IsFixed);
+
             return FixHelper.IsInjected(GetType());
         }
 
@@ -101,6 +105,7 @@ namespace com.bbbirder.unity
                         FixingDelegate = instMethod.Invoke(this, nameArgs) as Delegate,
                         OriginReceiver = f =>
                         {
+                            // m_IsFixed = true;
                             getters[name] = f;
                         }
                     };
@@ -114,6 +119,7 @@ namespace com.bbbirder.unity
                         FixingDelegate = instMethod.Invoke(this, nameArgs) as Delegate,
                         OriginReceiver = f =>
                         {
+                            // m_IsFixed = true;
                             setters[name] = f;
                         }
                     };

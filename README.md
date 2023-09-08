@@ -7,7 +7,11 @@ Unity注入模块，可以运行时改变被注入函数实现。
 ![GitHub last commit](http://img.shields.io/github/last-commit/labbbirder/UnityInjection)
 ![GitHub package.json version](http://img.shields.io/github/package-json/v/labbbirder/UnityInjection)
 
-Verified: unity 2021, unity 2022
+Verified Verisons:
+
+|Unity 2021.3.x|Unity 2022.3.x|
+|:-:|:-:|
+|:heavy_check_mark:|:heavy_check_mark:|
 
 ## Purpose
 
@@ -20,7 +24,6 @@ Unity的注入模块已经有一些其他大神的实现了，为什么还要造
 1. 基于UnityEditor。一些注入模块，需要依赖外部工具；而此实现在完全在UnityEditor下注入。
 2. 支持IL2CPP。一些注入模块只支持Editor和Mono；而此实现支持所有平台和选项。
 3. 支持修改引擎源码。一些注入模块只能修改用户代码，无法注入引擎代码；而此实现可以注入引擎和用户代码。
-
 
 ### 直接修改DLL文件？
 
@@ -54,7 +57,7 @@ openupm add com.bbbirder.injection
 一个修改`Debug.Log`的例子
 
 ```csharp
-using com.bbbirder.unity;
+using com.bbbirder.injection;
 using UnityEngine;
 
 // this illustration shows how to hook `Debug.Log`
@@ -80,7 +83,7 @@ public class FirstPatch
 初始化的时候调用：
 
 ```csharp
-FixHelper.Install();// 查找所有注入标记，并使生效
+FixHelper.InstallAll();// 查找所有注入标记，并使生效
 ```
 
 测试成果：
@@ -143,7 +146,7 @@ public class DebugInvocationAttribute:DecoratorAttribute
 public class Demo:MonoBehaviour{
     
     void Start(){
-        FixHelper.Install();
+        FixHelper.InstallAll();
     }
 
     async void Update(){
@@ -246,7 +249,7 @@ output:
 
 ```csharp
 print(pet.IsFixed()); // false
-FixHelper.Install();
+FixHelper.InstallAll();
 print(pet.IsFixed()); // true
 ```
 
@@ -258,7 +261,8 @@ print(pet.IsFixed()); // true
 |:-:|:-|:-|
 |文档示例中的异步方法无法打印完整|WebGL平台不支持多线程|文档中使用的是Task，改成UniTask或其他方式即可|
 |注入时未搜索到标记的方法|`Managed Stripping Level`过高，Attribute被移除|降低Stripping Level或 [保留代码](https://docs.unity3d.com/Manual/ManagedCodeStripping.html)|
-|注入时报`UnauthorizedAccessException`|文件访问权限不够|管理员运行 或 修改目标文件夹的安全设置（属性-安全-编辑，添加当前用户的完全控制）|
+|注入时报`UnauthorizedAccessException`或`cannot access file`|文件访问权限不够|管理员运行 或 修改目标文件夹的安全设置（属性-安全-编辑，添加当前用户的完全控制）|
+|打包时报`the same key has already been added. Key: mscorlib`|不支持的Unity版本，程序集依赖树包含多个不同版本的mscorlib|暂不提供解决方案，可自行修改类型引入部分逻辑，如果这个问题影响的人多则解决之|
 
 ## How it works
 

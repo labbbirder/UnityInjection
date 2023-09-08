@@ -4,14 +4,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using com.bbbirder.unity;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEditorInternal;
 using UnityEditor;
 using UnityEditor.Compilation;
 
-namespace com.bbbirder.unityeditor {
+namespace com.bbbirder.injection.editor {
     public static class InjectHelper{
 
         /// <summary>
@@ -47,8 +46,8 @@ namespace com.bbbirder.unityeditor {
 
             //mark check
             var injected = targetAssembly.MainModule.Types.Any(t=>
-                Settings.InjectedMarkName == t.Name &&
-                Settings.InjectedMarkNamespace ==t.Namespace);
+                Constants.InjectedMarkName == t.Name &&
+                Constants.InjectedMarkNamespace ==t.Namespace);
             if(injected){
                 targetAssembly.Release();
                 return false;
@@ -76,8 +75,8 @@ namespace com.bbbirder.unityeditor {
 
             //mark make
             var InjectedMark = new TypeDefinition(
-                Settings.InjectedMarkNamespace,
-                Settings.InjectedMarkName,
+                Constants.InjectedMarkNamespace,
+                Constants.InjectedMarkName,
                 TypeAttributes.Class,
                 targetAssembly.MainModule.TypeSystem.Object);
             targetAssembly.MainModule.Types.Add(InjectedMark);
@@ -108,7 +107,7 @@ namespace com.bbbirder.unityeditor {
             }
         }
         static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType,MethodDefinition targetMethod){
-            var originName = Settings.GetOriginMethodName(targetMethod.Name);
+            var originName = Constants.GetOriginMethodName(targetMethod.Name);
             var duplicatedMethod = targetMethod.Clone();
             duplicatedMethod.IsPrivate = true;
             duplicatedMethod.Name = originName;
@@ -122,7 +121,7 @@ namespace com.bbbirder.unityeditor {
             assemblyDefinition.Dispose();
         }
         static (FieldDefinition,MethodReference) AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){
-            var injectionName = Settings.GetInjectedFieldName(methodName);
+            var injectionName = Constants.GetInjectedFieldName(methodName);
             var HasThis = targetMethod.HasThis;
             var Parameters = targetMethod.Parameters;
             var GenericParameters = targetMethod.GenericParameters;

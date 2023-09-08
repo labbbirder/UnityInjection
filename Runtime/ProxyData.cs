@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using UnityEngine;
 
-namespace com.bbbirder.unity
+namespace com.bbbirder.injection
 {
     [InheritRetrieve]
     public interface IProxyData : IInjection

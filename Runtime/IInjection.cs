@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace com.bbbirder.unity{
+namespace com.bbbirder.injection{
     [InheritRetrieve]
     public interface IInjection{
         /// <summary>

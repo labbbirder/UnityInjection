@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace com.bbbirder.unity{
+namespace com.bbbirder.injection{
     public struct InjectionInfo{
         /// <summary>
         /// indicate the method to be injected

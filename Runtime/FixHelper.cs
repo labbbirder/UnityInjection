@@ -21,13 +21,13 @@ namespace com.bbbirder.unity {
         /// <returns></returns>
         public static bool IsInjected(Type type)
         {
-            var mark = type.Assembly.GetType($"{Settings.InjectedMarkNamespace}.{Settings.InjectedMarkName}");
+            var mark = type.Assembly.GetType($"{Constants.InjectedMarkNamespace}.{Constants.InjectedMarkName}");
             return mark != null;
         }
 
         public static MethodInfo GetOriginMethodFor(MethodInfo targetMethod)
         {
-            var oriName = Settings.GetOriginMethodName(targetMethod.Name);
+            var oriName = Constants.GetOriginMethodName(targetMethod.Name);
             return targetMethod.DeclaringType.GetMethod(oriName, bindingFlags);
         }
 
@@ -39,7 +39,7 @@ namespace com.bbbirder.unity {
             var targetType = targetMethod.DeclaringType;
             var methodName = targetMethod.Name;
             // set static field value
-            var sfld = targetType.GetField(Settings.GetInjectedFieldName(methodName), bindingFlags);
+            var sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags);
             try
             {
                 if (sfld is null)
@@ -62,7 +62,7 @@ namespace com.bbbirder.unity {
             }
 
             // set overwrite origin field
-            var originMethod = targetType.GetMethod(Settings.GetOriginMethodName(methodName), bindingFlags);
+            var originMethod = targetType.GetMethod(Constants.GetOriginMethodName(methodName), bindingFlags);
             try
             {
                 var oriDelegate = originMethod.CreateDelegate(sfld.FieldType);
@@ -105,7 +105,7 @@ namespace com.bbbirder.unity {
 
         public static string[] GetAllInjectionSources(){
             var attributeSources = Retriever.GetAllAttributes<InjectionAttribute>()
-                .Select(attr=>attr.GetType().Assembly);
+                .Select(attr=>attr.targetType.Assembly);
             var subtypeSources = Retriever.GetAllSubtypes<IInjection>()
                 .Select(t=>t.Assembly);
             return attributeSources.Concat(subtypeSources)

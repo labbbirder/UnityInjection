@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine.Scripting;
 
-namespace com.bbbirder.unity
+namespace com.bbbirder.injection
 {
     [Preserve, AttributeUsage(AttributeTargets.Method)]
     public class FixerAttribute : InjectionAttribute

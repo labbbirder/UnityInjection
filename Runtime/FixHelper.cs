@@ -4,16 +4,46 @@ using System.Reflection;
 using System.Linq;
 using System.IO;
 using UnityEngine;
-using com.bbbirder;
+using com.bbbirder.injection;
 
-namespace com.bbbirder.unity {
-    public static class FixHelper {
-        public static void Install() {
-            foreach(var injection in allInjections){
-                FixMethod(injection);
+namespace com.bbbirder.injection
+{
+    public static class FixHelper
+    {
+        public static HashSet<string> fixedAssemblies = new();
+        /// <summary>
+        /// Fix all injections in all assemblies in current domain
+        /// </summary>
+        public static void InstallAll()
+        {
+            var allAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in allAssemblies)
+            {
+                Install(assembly);
             }
             Debug.Log($"fixed {allInjections.Length} injections successfully!");
         }
+
+        /// <summary>
+        /// Fix injections who are provided from the specific assembly
+        /// </summary>
+        /// <remarks>
+        ///   <para>
+        ///   Be aware that the injections may refer to another assembly
+        ///   </para>
+        /// </remarks>
+        /// <param name="assembly"></param>
+        public static void Install(Assembly assembly)
+        {
+            var assemblyName = assembly.GetName().Name;
+            if (fixedAssemblies.Contains(assemblyName)) return;
+            foreach (var injection in GetAllInjections(new[] { assembly }))
+            {
+                FixMethod(injection);
+            }
+            fixedAssemblies.Add(assemblyName);
+        }
+
         /// <summary>
         /// check if the assembly of target type is injected
         /// </summary>

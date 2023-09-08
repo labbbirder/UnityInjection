@@ -75,7 +75,7 @@ namespace com.bbbirder.injection
                 if (sfld is null)
                 {
                     throw new($"Unable to fix target method {methodName} in type {targetType}, this may caused by injection issues."
-                    + " Try execute menu [Tools/bbbirder/Inject for Editor] if you see this in Editor mode");
+                    + " Try to inject manually in [Tools/bbbirder/Unity Injection] if you see this in Editor mode");
                 }
                 var @delegate = fixingDelegate ?? fixingMethod.CreateDelegate(sfld.FieldType);
                 if (@delegate is null)

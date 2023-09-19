@@ -69,7 +69,6 @@ namespace com.bbbirder.injection.editor
 
         public void GetOutdatedSources(IEnumerable<string> sources, List<string> outdated)
         {
-            Debug.Log(GetFilePath());
             var srcDict = injectionSources.ToDictionary(r => r.path, r => r.lastModifyTime);
             outdated.AddRange(
                 sources.Where(s =>

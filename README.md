@@ -61,14 +61,26 @@ using com.bbbirder.injection;
 using UnityEngine;
 
 // this illustration shows how to hook `Debug.Log`
-public class FirstPatch
+public class FirstPatch:IInjection
 {
     // the field to be overwrited to original method
     static Action<object> RawLog;
 
-    [Fixer(typeof(Debug),"Log",nameof(RawLog))]
     static void Log(object msg){
         return RawLog.Invoke("[msg] "+msg); 
+    }
+
+    internal class MethodReplacer : IInjection
+    {
+        // implement method: ProvideInjections
+        public IEnumerable<InjectionInfo> ProvideInjections()
+        {
+            yield return InjectionInfo.Create<Action<object>>(
+                Debug.Log,      // replace Debug.Log
+                FirstPatch.Log, // with FirstPatch.Log
+                f => FirstPatch.RawLog = f // save origin method to FirstPatch.RawLog
+            );
+        }
     }
 }
 
@@ -268,10 +280,10 @@ print(pet.IsFixed()); // true
 
 UnityInjection在编译时织入，不用担心运行时兼容性
 
-如何注入：
+织入时机：
 
 * 运行时：在打包的Link阶段修改DLL，如此使Runtime生效
-* 编辑器时：~~菜单[Tools/bbbirder/inject for Editor]，手动使编辑器模式生效。~~ 通常自动生效
+* 编辑器时：Domain Reload
 
 ## Todo List
 

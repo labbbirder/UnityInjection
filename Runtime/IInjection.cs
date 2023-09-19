@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 
-namespace com.bbbirder.injection{
-    [InheritRetrieve]
-    public interface IInjection{
+namespace com.bbbirder.injection
+{
+    public interface IInjection : IDirectRetrieve
+    {
         /// <summary>
         /// set this property to populate injections
         /// </summary>
         /// <value></value>
-        public abstract IEnumerable<InjectionInfo> ProvideInjections();
+        public IEnumerable<InjectionInfo> ProvideInjections();
     }
 }

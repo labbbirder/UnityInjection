@@ -66,15 +66,11 @@ namespace com.bbbirder.injection
 
             var FixingDelegate = fixingFunc;
 
-            yield return new()
-            {
-                InjectedMethod = InjectedMethod,
-                FixingDelegate = FixingDelegate,
-                OriginReceiver = f =>
-                {
-                    originFunc = (MulticastDelegate)f;
-                },
-            };
+            yield return InjectionInfo.Create(
+                InjectedMethod,
+                FixingDelegate,
+                f=>originFunc=(MulticastDelegate)f
+            );
         }
         public override void OnReceiveTarget()
         {

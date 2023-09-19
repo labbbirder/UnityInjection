@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace com.bbbirder.injection
 {
-    [InheritRetrieve]
     public interface IProxyData : IInjection
     {
 
@@ -99,30 +98,28 @@ namespace com.bbbirder.injection
                 instMethod = proxyGet.MakeGenericMethod(targetType, property.PropertyType);
                 if (property.GetMethod != null)
                 {
-                    yield return new()
-                    {
-                        InjectedMethod = property.GetMethod,
-                        FixingDelegate = instMethod.Invoke(this, nameArgs) as Delegate,
-                        OriginReceiver = f =>
+                    yield return InjectionInfo.Create(
+                        property.GetMethod,
+                        instMethod.Invoke(this, nameArgs) as Delegate,
+                        f =>
                         {
                             // m_IsFixed = true;
                             getters[name] = f;
                         }
-                    };
+                    );
                 }
                 instMethod = proxySet.MakeGenericMethod(targetType, property.PropertyType);
                 if (property.SetMethod != null)
                 {
-                    yield return new()
-                    {
-                        InjectedMethod = property.SetMethod,
-                        FixingDelegate = instMethod.Invoke(this, nameArgs) as Delegate,
-                        OriginReceiver = f =>
+                    yield return InjectionInfo.Create(
+                        property.SetMethod,
+                        instMethod.Invoke(this, nameArgs) as Delegate,
+                        f =>
                         {
                             // m_IsFixed = true;
                             setters[name] = f;
                         }
-                    };
+                    );
                 }
             }
 

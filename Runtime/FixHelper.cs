@@ -69,7 +69,17 @@ namespace com.bbbirder.injection
             var targetType = targetMethod.DeclaringType;
             var methodName = targetMethod.Name;
             // set static field value
-            var sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags);
+            FieldInfo sfld;
+            try
+            {
+                sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags^BindingFlags.Instance);
+            }
+            catch (Exception e)
+            {
+                var msg = $"error on set fixing field {methodName} on {targetType}\n{e.Message}\n{e.StackTrace}";
+                Debug.LogError(msg);
+                throw;
+            }
             try
             {
                 if (sfld is null)
@@ -133,14 +143,15 @@ namespace com.bbbirder.injection
             return injections.Concat(injections2).ToArray();
         }
 
-        public static string[] GetAllInjectionSources(){
+        public static string[] GetAllInjectionSources()
+        {
             var attributeSources = Retriever.GetAllAttributes<InjectionAttribute>()
-                .Select(attr=>attr.targetType.Assembly);
+                .Select(attr => attr.targetType.Assembly);
             var subtypeSources = Retriever.GetAllSubtypes<IInjection>()
-                .Select(t=>t.Assembly);
+                .Select(t => t.Assembly);
             return attributeSources.Concat(subtypeSources)
                 .Distinct()
-                .Select(ass=>ass.GetAssemblyPath())
+                .Select(ass => ass.GetAssemblyPath())
                 .Distinct()
                 .ToArray();
         }

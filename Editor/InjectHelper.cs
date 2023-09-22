@@ -10,8 +10,10 @@ using UnityEditorInternal;
 using UnityEditor;
 using UnityEditor.Compilation;
 
-namespace com.bbbirder.injection.editor {
-    public static class InjectHelper{
+namespace com.bbbirder.injection.editor
+{
+    public static class InjectHelper
+    {
 
         /// <summary>
         /// inject target assembly
@@ -20,57 +22,66 @@ namespace com.bbbirder.injection.editor {
         /// <param name="inputAssemblyPath"></param>
         /// <param name="outputAssemblyPath"></param>
         /// <returns>is written</returns>
-        internal static bool InjectAssembly(InjectionInfo[] injections, string inputAssemblyPath,string outputAssemblyPath,bool isEditor,BuildTarget buildTarget) {
+        internal static bool InjectAssembly(InjectionInfo[] injections, string inputAssemblyPath, string outputAssemblyPath, bool isEditor, BuildTarget buildTarget)
+        {
             // set up assembly resolver
             var resolver = new DefaultAssemblyResolver();
             var apiCompatibilityLevel = PlayerSettings.GetApiCompatibilityLevel(EditorUserBuildSettings.selectedBuildTargetGroup);
             var assemblySearchFolders = UnityInjectUtils.GetAssemblySearchFolders(isEditor, buildTarget);
             var systemAssemblyDirectories = CompilationPipeline.GetSystemAssemblyDirectories(apiCompatibilityLevel);
             resolver.AddSearchDirectory(Path.GetDirectoryName(outputAssemblyPath));
-            foreach(var folder in assemblySearchFolders){
-               resolver.AddSearchDirectory(folder);
+            foreach (var folder in assemblySearchFolders)
+            {
+                resolver.AddSearchDirectory(folder);
             }
-            foreach(var folder in systemAssemblyDirectories){
-               resolver.AddSearchDirectory(folder);
+            foreach (var folder in systemAssemblyDirectories)
+            {
+                resolver.AddSearchDirectory(folder);
             }
 
             var IsPlayerAssembly = Path.GetFullPath(inputAssemblyPath).StartsWith(Path.GetFullPath("Library/"))
                                 || Path.GetFullPath(inputAssemblyPath).StartsWith(Path.GetFullPath("Temp/"));
 
-            var targetAssembly = AssemblyDefinition.ReadAssembly(inputAssemblyPath, new ReaderParameters(){
-                AssemblyResolver=resolver,
-                ReadingMode=ReadingMode.Immediate,
+            var targetAssembly = AssemblyDefinition.ReadAssembly(inputAssemblyPath, new ReaderParameters()
+            {
+                AssemblyResolver = resolver,
+                ReadingMode = ReadingMode.Immediate,
                 ReadSymbols = IsPlayerAssembly,
                 InMemory = true,
             });
 
             //mark check
-            var injected = targetAssembly.MainModule.Types.Any(t=>
+            var injected = targetAssembly.MainModule.Types.Any(t =>
                 Constants.InjectedMarkName == t.Name &&
-                Constants.InjectedMarkNamespace ==t.Namespace);
-            if(injected){
+                Constants.InjectedMarkNamespace == t.Namespace);
+            if (injected)
+            {
                 targetAssembly.Release();
                 return false;
             }
 
-            foreach(var injection in injections){
-                var type = injection.InjectedMethod.DeclaringType;
-                var methodName = injection.InjectedMethod.Name;
-                var targetType = GetCorrespondingType(targetAssembly.MainModule,type);
-                if(targetType is null){
+            foreach (var group in injections.GroupBy(inj=>inj.InjectedMethod))
+            {
+                var injectedMethod = group.Key;
+                var type = injectedMethod.DeclaringType;
+                var methodName = injectedMethod.Name;
+                var targetType = GetCorrespondingType(targetAssembly.MainModule, type);
+                if (targetType is null)
+                {
                     throw new($"Cannot find Type `{type}` in target assembly {inputAssemblyPath}");
                 }
                 var targetMethod = targetType.FindMethod(methodName).Resolve();
-                if(targetMethod is null){
+                if (targetMethod is null)
+                {
                     throw new($"Cannot find Method `{methodName}` in Type `{type}`");
                 }
 
                 //add origin
                 var originalMethod = targetType.DuplicateOriginalMethod(targetMethod);
                 //add field
-                var (field,fieldInvoke) = targetType.AddInjectField(targetMethod,methodName);
+                var (field, fieldInvoke) = targetType.AddInjectField(targetMethod, methodName);
                 //add method
-                targetType.AddInjectionMethod(targetMethod,originalMethod,field,fieldInvoke,methodName);
+                targetType.AddInjectionMethod(targetMethod, originalMethod, field, fieldInvoke, methodName);
             }
 
             //mark make
@@ -82,45 +93,59 @@ namespace com.bbbirder.injection.editor {
             targetAssembly.MainModule.Types.Add(InjectedMark);
 
 
-            targetAssembly.Write(outputAssemblyPath,new WriterParameters(){
+            targetAssembly.Write(outputAssemblyPath, new WriterParameters()
+            {
                 WriteSymbols = IsPlayerAssembly,
             });
             targetAssembly.Release();
             return true;
-            static TypeDefinition GetCorrespondingType(ModuleDefinition module, Type t1){
+            static TypeDefinition GetCorrespondingType(ModuleDefinition module, Type t1)
+            {
                 var typeDefinition = default(TypeDefinition);
-                foreach(var type in GetContainingTypes(t1).Reverse()){
-                    if(typeDefinition is null){
-                        typeDefinition = module.Types.FirstOrDefault(t=>type.FullName==t.FullName);
-                    }else{
-                        typeDefinition = typeDefinition.NestedTypes.FirstOrDefault(t=>t.Name == type.Name);
+                foreach (var type in GetContainingTypes(t1).Reverse())
+                {
+                    if (typeDefinition is null)
+                    {
+                        typeDefinition = module.Types.FirstOrDefault(t => type.FullName == t.FullName);
                     }
-                    if(typeDefinition is null) return null;
+                    else
+                    {
+                        typeDefinition = typeDefinition.NestedTypes.FirstOrDefault(t => t.Name == type.Name);
+                    }
+                    if (typeDefinition is null) return null;
                 }
                 return typeDefinition;
-                static IEnumerable<Type> GetContainingTypes(Type type){
-                    while(type!=null){
+                static IEnumerable<Type> GetContainingTypes(Type type)
+                {
+                    while (type != null)
+                    {
                         yield return type;
                         type = type.DeclaringType;
                     }
                 }
             }
         }
-        static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType,MethodDefinition targetMethod){
+        static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType, MethodDefinition targetMethod)
+        {
             var originName = Constants.GetOriginMethodName(targetMethod.Name);
-            var duplicatedMethod = targetMethod.Clone();
-            duplicatedMethod.IsPrivate = true;
-            duplicatedMethod.Name = originName;
-            targetType.Methods.Add(duplicatedMethod);
+            var duplicatedMethod = targetType.Methods.FirstOrDefault(m=>m.Name==originName);
+            if(duplicatedMethod is null){
+                duplicatedMethod = targetMethod.Clone();
+                duplicatedMethod.IsPrivate = true;
+                duplicatedMethod.Name = originName;
+                targetType.Methods.Add(duplicatedMethod);
+            }
             return duplicatedMethod;
         }
-        static void Release(this AssemblyDefinition assemblyDefinition){
-            if(assemblyDefinition == null) return;
+        static void Release(this AssemblyDefinition assemblyDefinition)
+        {
+            if (assemblyDefinition == null) return;
             assemblyDefinition.MainModule.AssemblyResolver?.Dispose();
             assemblyDefinition.MainModule.SymbolReader?.Dispose();
             assemblyDefinition.Dispose();
         }
-        static (FieldDefinition,MethodReference) AddInjectField(this TypeDefinition targetType,MethodDefinition targetMethod,string methodName){
+        static (FieldDefinition field, MethodReference fieldInvokeMethod) AddInjectField(this TypeDefinition targetType, MethodDefinition targetMethod, string methodName)
+        {
             var injectionName = Constants.GetInjectedFieldName(methodName);
             var HasThis = targetMethod.HasThis;
             var Parameters = targetMethod.Parameters;
@@ -134,53 +159,60 @@ namespace com.bbbirder.injection.editor {
             // foreach(var p in Parameters) delegateParameters.Add(p.ParameterType);
             // var delegateType = targetType.Module.CreateDelegateType(Settings.GetDelegateTypeName(methodName),targetType,ReturnType,delegateParameters);
             // targetType.NestedTypes.Add(delegateType);
-            
-            var genName = targetMethod.IsReturnVoid()?"System.Action`":"System.Func`";
+
+            var genName = targetMethod.IsReturnVoid() ? "System.Action`" : "System.Func`";
             var genPCnt = Parameters.Count;
-            if(!ReturnVoid) genPCnt++;
-            if(HasThis) genPCnt++;
-            var rawGenType = targetType.Module.FindType(Type.GetType(genName+genPCnt));
+            if (!ReturnVoid) genPCnt++;
+            if (HasThis) genPCnt++;
+            var rawGenType = targetType.Module.FindType(Type.GetType(genName + genPCnt));
             var genType = targetType.Module.ImportReference(rawGenType);
             var genInst = new GenericInstanceType(genType);
-            if(HasThis)
+            if (HasThis)
                 genInst.GenericArguments.Add(targetType);
-            foreach(var p in Parameters)
+            foreach (var p in Parameters)
                 genInst.GenericArguments.Add(p.ParameterType);
-            if(!ReturnVoid)
+            if (!ReturnVoid)
                 genInst.GenericArguments.Add(ReturnType);
             //store fields
-            var sfldInject = new FieldDefinition(injectionName,
-                FieldAttributes.Private|FieldAttributes.Static,
-                genInst);
+            var sfldInject = targetType.Fields.FirstOrDefault(f => f.Name == injectionName);
+            if (sfldInject is null)
+            {
+                sfldInject = new FieldDefinition(injectionName,
+                    FieldAttributes.Private | FieldAttributes.Static,
+                    genInst);
+                targetType.Fields.Add(sfldInject);
+            }
+            
             // var sfldOrigin = new FieldDefinition(originName,
             //     FieldAttributes.Private|FieldAttributes.Static|FieldAttributes.Assembly,
             //     targetType.Module.ImportReference(typeof(Delegate)));
             // var resMth = genInst.Resolve();
             var genMtd = rawGenType.FindMethod("Invoke");
             // genMtd.DeclaringType = genInst;
-            var mnlMth = new MethodReference(genMtd.Name,genMtd.ReturnType,genInst){
+            var mnlMth = new MethodReference(genMtd.Name, genMtd.ReturnType, genInst)
+            {
                 ExplicitThis = false,
                 HasThis = true,
                 CallingConvention = genMtd.CallingConvention
             };
-            foreach(var p in genMtd.Parameters)
+            foreach (var p in genMtd.Parameters)
                 mnlMth.Parameters.Add(p);
 
-            targetType.Fields.Add(sfldInject);
-            return (sfldInject,mnlMth);
+            return (sfldInject, mnlMth);
         }
 
         static void AddInjectionMethod(
             this TypeDefinition targetType,
-            MethodDefinition targetMethod,MethodDefinition originalMethod,
-            FieldDefinition delegateField,MethodReference fieldInvoke,string methodName
-        ){
+            MethodDefinition targetMethod, MethodDefinition originalMethod,
+            FieldDefinition delegateField, MethodReference fieldInvoke, string methodName
+        )
+        {
             var argidx = 0;
-            var HasThis =           targetMethod.HasThis;
-            var Parameters =        targetMethod.Parameters;
+            var HasThis = targetMethod.HasThis;
+            var Parameters = targetMethod.Parameters;
             // var GenericParameters = targetMethod.GenericParameters;
             // var CustomAttributes =  targetMethod.CustomAttributes;
-            var ReturnType =        targetMethod.ReturnType;
+            var ReturnType = targetMethod.ReturnType;
 
             //redirect method
             targetMethod.Body.Instructions.Clear();
@@ -188,9 +220,9 @@ namespace com.bbbirder.injection.editor {
             var ilProcessor = targetMethod.Body.GetILProcessor();
             var tagOp = Instruction.Create(OpCodes.Nop);
             //check null
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld,  delegateField));
-            ilProcessor.Append(Instruction.Create(OpCodes.Brtrue_S,tagOp));
-            
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, delegateField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Brtrue_S, tagOp));
+
             // //set field
             // if(HasThis)
             //     ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
@@ -202,29 +234,31 @@ namespace com.bbbirder.injection.editor {
 
             //invoke origin
             argidx = 0;
-            if(HasThis)
+            if (HasThis)
                 ilProcessor.Append(ilProcessor.createLdarg(argidx++));
-            for(var i=0; i<Parameters.Count; i++){
+            for (var i = 0; i < Parameters.Count; i++)
+            {
                 var pType = Parameters[i].ParameterType;
                 ilProcessor.Append(ilProcessor.createLdarg(argidx++));
                 // if(pType.IsValueType)
                 //     ilProcessor.Append(Instruction.Create(OpCodes.Box,pType));
             }
-            if(HasThis)
-                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,originalMethod));
+            if (HasThis)
+                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, originalMethod));
             else
-                ilProcessor.Append(Instruction.Create(OpCodes.Call,originalMethod));
+                ilProcessor.Append(Instruction.Create(OpCodes.Call, originalMethod));
             // if(originalMethod.IsReturnVoid())
             //     ilProcessor.Append(Instruction.Create(OpCodes.Pop));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
 
             //invoke
             ilProcessor.Append(tagOp);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld,delegateField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, delegateField));
             argidx = 0;
-            if(HasThis)
+            if (HasThis)
                 ilProcessor.Append(ilProcessor.createLdarg(argidx++));
-            for(var i=0; i<Parameters.Count; i++){
+            for (var i = 0; i < Parameters.Count; i++)
+            {
                 var pType = Parameters[i].ParameterType;
                 ilProcessor.Append(ilProcessor.createLdarg(argidx++));
                 // if(pType.IsValueType)
@@ -232,11 +266,11 @@ namespace com.bbbirder.injection.editor {
             }
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt,
                 (fieldInvoke)));
-            
+
             // Fixes: conditional boxing here is unnecessary
             // if(ReturnType.IsComplexValueType())
             //     ilProcessor.Append(Instruction.Create(OpCodes.Box,ReturnType));
-            
+
             ilProcessor.Append(Instruction.Create(OpCodes.Nop));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
         }
@@ -274,16 +308,17 @@ namespace com.bbbirder.injection.editor {
         /// </summary>
         public static MethodDefinition Clone(this MethodDefinition source)
         {
-            var result = new MethodDefinition(source.Name, source.Attributes, source.ReturnType) {
+            var result = new MethodDefinition(source.Name, source.Attributes, source.ReturnType)
+            {
                 ImplAttributes = source.ImplAttributes,
                 SemanticsAttributes = source.SemanticsAttributes,
                 HasThis = source.HasThis,
                 ExplicitThis = source.ExplicitThis,
                 CallingConvention = source.CallingConvention
             };
-            foreach (var p in source.Parameters)       result.Parameters.Add(p);
+            foreach (var p in source.Parameters) result.Parameters.Add(p);
             // foreach (var p in source.CustomAttributes) result.CustomAttributes.Add(p);
-            foreach (var p in source.GenericParameters)result.GenericParameters.Add(p);
+            foreach (var p in source.GenericParameters) result.GenericParameters.Add(p);
             if (source.HasBody)
             {
                 result.Body = source.Body.Clone(result);
@@ -298,8 +333,10 @@ namespace com.bbbirder.injection.editor {
         {
             var result = new MethodBody(target) { InitLocals = source.InitLocals, MaxStackSize = source.MaxStackSize };
             var worker = result.GetILProcessor();
-            if(source.HasVariables){
-                foreach(var v in source.Variables){
+            if (source.HasVariables)
+            {
+                foreach (var v in source.Variables)
+                {
                     result.Variables.Add(v);
                 }
             }
@@ -315,57 +352,68 @@ namespace com.bbbirder.injection.editor {
         }
 
         internal static bool IsReturnVoid(this MethodDefinition md)
-            => md.ReturnType.ToString()==voidType.ToString();
+            => md.ReturnType.ToString() == voidType.ToString();
         internal static bool IsReturnValueType(this MethodDefinition md)
             => !md.IsReturnVoid() && md.ReturnType.IsValueType;
         internal static bool IsComplexValueType(this TypeReference td)
-            => td.ToString()!=voidType.ToString() && !td.IsPrimitive;
+            => td.ToString() != voidType.ToString() && !td.IsPrimitive;
         internal static Type GetUnderlyingType(this TypeReference td)
             => td.IsPrimitive ? Type.GetType(td.Name) : objType;
-        internal static MethodReference FindMethod(this TypeDefinition td,string methodName)
-            => td.Module.ImportReference(td.Methods.FirstOrDefault(m=>m.Name==methodName));
-        internal static TypeDefinition FindType(this ModuleDefinition md,Type type){
+        internal static MethodReference FindMethod(this TypeDefinition td, string methodName)
+            => td.Module.ImportReference(td.Methods.FirstOrDefault(m => m.Name == methodName));
+        internal static TypeDefinition FindType(this ModuleDefinition md, Type type)
+        {
             HashSet<string> knownAssemblyNames = new();
             List<ModuleDefinition> modules = new();
             GetModules(md);
-            foreach(var m in modules){
-                var tp = m.GetType(type.Namespace,type.Name);
-                if(null != tp){
+            foreach (var m in modules)
+            {
+                var tp = m.GetType(type.Namespace, type.Name);
+                if (null != tp)
+                {
                     return tp;
                 }
             }
             return null;
-            void GetModules(ModuleDefinition md){
-                if(knownAssemblyNames.Contains(md.FileName))
+            void GetModules(ModuleDefinition md)
+            {
+                if (knownAssemblyNames.Contains(md.FileName))
                     return;
                 var refModules = md.AssemblyReferences
-                    .Select(an=>{
-                        try{
+                    .Select(an =>
+                    {
+                        try
+                        {
                             return md.AssemblyResolver.Resolve(an).MainModule;
-                        }catch{
+                        }
+                        catch
+                        {
                             return null;
                         }
                     })
-                    .Where(r=>r != null)
+                    .Where(r => r != null)
                     .ToArray();
                 AddModule(md);
-                foreach(var m in refModules){
+                foreach (var m in refModules)
+                {
                     GetModules(m);
                 }
             }
-            void AddModule(ModuleDefinition md){
+            void AddModule(ModuleDefinition md)
+            {
                 var fileName = md.FileName;
-                if(!knownAssemblyNames.Contains(fileName))
+                if (!knownAssemblyNames.Contains(fileName))
                     modules.Add(md);
                 knownAssemblyNames.Add(fileName);
             }
             // return new TypeReference(type.Namespace,type.Name,md,md.TypeSystem.CoreLibrary);
         }
-        internal static TypeReference FindType<T>(this ModuleDefinition md){
-            return FindType(md,typeof(T));
+        internal static TypeReference FindType<T>(this ModuleDefinition md)
+        {
+            return FindType(md, typeof(T));
             // return new TypeReference(typeof(T).Namespace,typeof(T).Name,md,md.TypeSystem.CoreLibrary);
         }
-        internal static TypeDefinition CreateDelegateType(this ModuleDefinition assembly,string name,TypeDefinition declaringType,
+        internal static TypeDefinition CreateDelegateType(this ModuleDefinition assembly, string name, TypeDefinition declaringType,
                 TypeReference returnType, IEnumerable<TypeReference> parameters)
         {
             var voidType = assembly.TypeSystem.Void;
@@ -412,7 +460,7 @@ namespace com.bbbirder.injection.editor {
                 // if(!p.IsValueType){
                 //     invoke.Parameters.Add(new ParameterDefinition(p.Name,ParameterAttributes.In,objectType));
                 // }else{
-                    invoke.Parameters.Add(new ParameterDefinition(p));
+                invoke.Parameters.Add(new ParameterDefinition(p));
                 // }
             }
             invoke.ImplAttributes = MethodImplAttributes.Runtime;
@@ -422,6 +470,6 @@ namespace com.bbbirder.injection.editor {
         }
         static Type voidType = typeof(void);
         static Type objType = typeof(object);
-        static OpCode[] s_ldargs = new []{OpCodes.Ldarg_0,OpCodes.Ldarg_1,OpCodes.Ldarg_2,OpCodes.Ldarg_3};
+        static OpCode[] s_ldargs = new[] { OpCodes.Ldarg_0, OpCodes.Ldarg_1, OpCodes.Ldarg_2, OpCodes.Ldarg_3 };
     }
 }

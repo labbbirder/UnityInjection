@@ -60,7 +60,6 @@ namespace com.bbbirder.injection
             var oriName = Constants.GetOriginMethodName(targetMethod.Name);
             return targetMethod.DeclaringType.GetMethod(oriName, bindingFlags);
         }
-
         static void FixMethod(InjectionInfo injection)
         {
             var targetMethod = injection.InjectedMethod;
@@ -72,7 +71,7 @@ namespace com.bbbirder.injection
             FieldInfo sfld;
             try
             {
-                sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags^BindingFlags.Instance);
+                sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags ^ BindingFlags.Instance);
             }
             catch (Exception e)
             {
@@ -92,7 +91,8 @@ namespace com.bbbirder.injection
                 {
                     throw new($"Unable to create delegate for replace method {fixingMethod}, whose target is {methodName}");
                 }
-                sfld.SetValue(null, @delegate);
+                var combined = Delegate.Combine(sfld.GetValue(null) as Delegate, @delegate);
+                sfld.SetValue(null, combined);
             }
             catch (Exception e)
             {

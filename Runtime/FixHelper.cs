@@ -62,13 +62,22 @@ namespace com.bbbirder.injection
         }
         static void FixMethod(InjectionInfo injection)
         {
+            injection.onStartFix?.Invoke();
             var targetMethod = injection.InjectedMethod;
             var fixingMethod = injection.FixingMethod;
             var fixingDelegate = injection.FixingDelegate;
+
+            if ((targetMethod ?? fixingMethod ?? (object)fixingDelegate) == null)
+            {
+                return;
+            }
+
             var targetType = targetMethod.DeclaringType;
             var methodName = targetMethod.Name;
             // set static field value
             FieldInfo sfld;
+
+
             try
             {
                 sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags ^ BindingFlags.Instance);
@@ -79,6 +88,7 @@ namespace com.bbbirder.injection
                 Debug.LogError(msg);
                 throw;
             }
+
             try
             {
                 if (sfld is null)

@@ -21,6 +21,7 @@ namespace com.bbbirder.injection
 
 
         public Action<Delegate> OriginReceiver;
+        internal Action onStartFix;
 
         public static InjectionInfo Create(TargetMethodType methodToReplace, MethodInfo methodToProvide, Action<Delegate> originMethodReceiver = null)
         {
@@ -53,6 +54,12 @@ namespace com.bbbirder.injection
                 InjectedMethod = methodToReplace.Method,
                 FixingDelegate = methodToProvide,
                 OriginReceiver = f => originMethodReceiver?.Invoke((T)f),
+            };
+        }
+
+        public static InjectionInfo Create(Action onStartFix){
+            return new InjectionInfo(){
+                onStartFix = onStartFix,
             };
         }
     }

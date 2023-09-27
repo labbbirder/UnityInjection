@@ -63,6 +63,7 @@ namespace com.bbbirder.injection.editor
             foreach (var group in injections.GroupBy(inj=>inj.InjectedMethod))
             {
                 var injectedMethod = group.Key;
+                if(injectedMethod is null) continue;
                 var type = injectedMethod.DeclaringType;
                 var methodName = injectedMethod.Name;
                 var targetType = GetCorrespondingType(targetAssembly.MainModule, type);

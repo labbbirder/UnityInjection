@@ -109,10 +109,12 @@ namespace com.bbbirder.injection.editor
             var allInjections = FixHelper.allInjections;
             var freshInjections = FixHelper.GetAllInjections(assemblies);
             var freshAssemblies = freshInjections
+                .Where(inj=>inj.InjectedMethod != null)
                 .Select(inj => inj.InjectedMethod.DeclaringType.Assembly)
                 .Distinct().
                 ToHashSet();
             var outcomeInjections = allInjections
+                .Where(inj=>inj.InjectedMethod != null)
                 .Where(inj => freshAssemblies.Contains(inj.InjectedMethod.DeclaringType.Assembly))
                 .ToArray();
             Debug.Log($"auto inject {allInjections.Length} injections, {outcomeInjections.Length} to inject");
@@ -139,7 +141,9 @@ namespace com.bbbirder.injection.editor
 
         static bool InjectTargetMode(InjectionInfo[] injections, bool isEditor, BuildTarget buildTarget)
         {
-            var group = injections.GroupBy(inj => inj.InjectedMethod.DeclaringType.Assembly);
+            var group = injections
+                .Where(inj=>inj.InjectedMethod != null)
+                .GroupBy(inj => inj.InjectedMethod.DeclaringType.Assembly);
             var isWritten = false;
             foreach (var g in group)
             {

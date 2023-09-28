@@ -26,7 +26,8 @@ namespace com.bbbirder.injection
         static ServiceScopeMode DefaultScopeMode => Single;
         static Dictionary<Type, object> singletons = new();
         static Dictionary<Type, Info> lutInfos = new();
-        public static void ClearInstances(){
+        public static void ClearInstances()
+        {
             singletons.Clear();
         }
         public static object Get(Type type)
@@ -34,6 +35,7 @@ namespace com.bbbirder.injection
             if (!lutInfos.TryGetValue(type, out var info))
             {
                 var subtypes = Retriever.GetAllSubtypes(type)
+                    .Append(type)
                     .Where(t => !t.IsInterface)
                     .Where(t => !t.IsAbstract)
                     .ToArray()
@@ -85,7 +87,7 @@ namespace com.bbbirder.injection
                 resultType = typeof(TResult),
                 scopeMode = Single,
             };
-            if(noLazy) Get<TContract>();
+            if (noLazy) Get<TContract>();
         }
 
         public static ServiceScopeMode GetScopeMode<TContract>()

@@ -99,10 +99,6 @@ namespace com.bbbirder.injection
             var memberType = GetMemberType(targetMember);
             var isStatic = IsStatic(targetMember);
             var canWrite = CanWrite(targetMember);
-            if (!Retriever.IsTypeRetrievable(memberType))
-            {
-                throw new Exception($"cannot inject {targetMember} on type {targetType}, type {memberType} is not retrievable");
-            }
             if (isStatic)
             {
                 if (canWrite)

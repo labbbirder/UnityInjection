@@ -31,17 +31,20 @@ namespace com.bbbirder.injection.editor
             var uiAsset = GetVisualTreeAssetByGUID(rootUiAssetGUID);
             var uiEleAsset = GetVisualTreeAssetByGUID(ElementUiAssetGUID);
             uiAsset.CloneTree(rootVisualElement);
-            var lst = rootVisualElement.Q<ListView>();
+            var lstSource = rootVisualElement.Q<ListView>("lstSource");
+            var lstError = rootVisualElement.Q<ListView>("lstError");
 
-            lst.makeItem = uiEleAsset.CloneTree;
-            lst.bindItem = (v, i) =>
+            lstSource.makeItem = uiEleAsset.CloneTree;
+            lstSource.bindItem = (v, i) =>
             {
                 var data = settings.injectionSources[i];
                 v.Q<Label>().text = Path.GetFileName(data.path);
             };
 
+            lstError.makeItem = () => new Label();
             var btnInject = rootVisualElement.Q<Button>("btnInject");
-            btnInject.clicked += ()=>{
+            btnInject.clicked += () =>
+            {
                 UnityInjectUtils.InjectEditor(AppDomain.CurrentDomain.GetAssemblies());
             };
 

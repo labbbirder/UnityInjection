@@ -33,6 +33,9 @@ namespace com.bbbirder.injection.editor
 
         [SerializeField]
         public List<AssemblyRecord> injectionSources = new();
+        
+        [SerializeField]
+        public List<string> compilationErrorAssemblies = new();
 
         public bool ShouldAutoInjectEditor => enabled && autoInjectEditor;
         public bool ShouldAutoInjectBuild => enabled && autoInjectBuild;

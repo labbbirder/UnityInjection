@@ -23,7 +23,6 @@ namespace com.bbbirder.injection.editor
         [InitializeOnLoadMethod]
         static void Install()
         {
-            var previousCompiledAssemblies = new HashSet<string>();
             CompilationPipeline.compilationStarted += (o) =>
             {
                 var settings = GetScriptAssemblySettings();
@@ -40,11 +39,24 @@ namespace com.bbbirder.injection.editor
                 }
             };
 
-            // CompilationPipeline.assemblyCompilationFinished += (path, msg) =>
-            // {
-            //     Debug.Log("compile assembly " + path);
-            // };
-            
+
+            CompilationPipeline.assemblyCompilationFinished += (path, msg) =>
+            {
+                var fullPath = Path.GetFullPath(path);
+                var hasError = msg.Any(m => m.type == CompilerMessageType.Error);
+                if (hasError)
+                {
+                    var list = InjectionSettings.instance.compilationErrorAssemblies;
+                    if (!list.Contains(fullPath)) list.Add(fullPath);
+                }
+                else
+                {
+                    InjectionSettings.instance.compilationErrorAssemblies.RemoveAll(p => p.Equals(fullPath));
+                }
+                EditorUtility.SetDirty(InjectionSettings.instance);
+                AssetDatabase.SaveAssetIfDirty(InjectionSettings.instance);
+            };
+
             CompilationPipeline.compilationFinished += (o) =>
             {
                 var settings = GetScriptAssemblySettings();
@@ -60,7 +72,8 @@ namespace com.bbbirder.injection.editor
                 }
             };
 
-            if(InjectionSettings.instance.ShouldAutoInjectEditor){
+            if (InjectionSettings.instance.ShouldAutoInjectEditor)
+            {
                 EditorApplication.delayCall += InjectEditorDelayed;
             }
 
@@ -85,7 +98,22 @@ namespace com.bbbirder.injection.editor
                 {
                     return;
                 }
-                var assemblies = GetAssemblies(outdatedSources.ToHashSet());
+
+                // filter out assemblies who has compilation error
+                var injectingSources = outdatedSources.Distinct().Where(p =>
+                {
+                    var fullPath = Path.GetFullPath(p);
+                    var hasError = InjectionSettings.instance.compilationErrorAssemblies
+                        .Contains(fullPath)
+                        ;
+                    if (hasError)
+                    {
+                        Debug.LogWarning($"ignore target {p} due to compilation error");
+                    }
+                    return !hasError;
+                }).ToList();
+
+                var assemblies = GetAssemblies(injectingSources.ToHashSet());
                 if (assemblies.Length > 0)
                 {
                     InjectEditor(assemblies);
@@ -109,12 +137,12 @@ namespace com.bbbirder.injection.editor
             var allInjections = FixHelper.allInjections;
             var freshInjections = FixHelper.GetAllInjections(assemblies);
             var freshAssemblies = freshInjections
-                .Where(inj=>inj.InjectedMethod != null)
+                .Where(inj => inj.InjectedMethod != null)
                 .Select(inj => inj.InjectedMethod.DeclaringType.Assembly)
                 .Distinct().
                 ToHashSet();
             var outcomeInjections = allInjections
-                .Where(inj=>inj.InjectedMethod != null)
+                .Where(inj => inj.InjectedMethod != null)
                 .Where(inj => freshAssemblies.Contains(inj.InjectedMethod.DeclaringType.Assembly))
                 .ToArray();
             Debug.Log($"auto inject {allInjections.Length} injections, {outcomeInjections.Length} to inject");
@@ -142,7 +170,7 @@ namespace com.bbbirder.injection.editor
         static bool InjectTargetMode(InjectionInfo[] injections, bool isEditor, BuildTarget buildTarget)
         {
             var group = injections
-                .Where(inj=>inj.InjectedMethod != null)
+                .Where(inj => inj.InjectedMethod != null)
                 .GroupBy(inj => inj.InjectedMethod.DeclaringType.Assembly);
             var isWritten = false;
             foreach (var g in group)

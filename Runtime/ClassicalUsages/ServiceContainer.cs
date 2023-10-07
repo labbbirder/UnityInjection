@@ -30,30 +30,53 @@ namespace com.bbbirder.injection
         {
             singletons.Clear();
         }
-        public static object Get(Type type)
+        static Type FindType(Type type)
         {
             if (!lutInfos.TryGetValue(type, out var info))
             {
-                var subtypes = Retriever.GetAllSubtypes(type)
-                    .Append(type)
-                    .Where(t => !t.IsInterface)
-                    .Where(t => !t.IsAbstract)
-                    .ToArray()
-                    ;
-                if (subtypes.Length == 0)
+                var resultType = type;
+                if (type.IsAbstract || type.IsInterface)
                 {
-                    throw new ArgumentException($"type {type} doesn't has an implement");
+                    var subtypes = Retriever.GetAllSubtypes(type)
+                        .Append(type)
+                        .Where(t => !t.IsInterface)
+                        .Where(t => !t.IsAbstract)
+                        .ToArray()
+                        ;
+                    if (subtypes.Length == 0)
+                    {
+                        throw new ArgumentException($"type {type} doesn't has an implement");
+                    }
+                    if (subtypes.Length > 1)
+                    {
+                        Debug.LogWarning($"type {type} exists more than one implements");
+                    }
+                    resultType = subtypes[0];
                 }
-                if (subtypes.Length > 1)
+
+                //TODO：Construct generic type recursively
+                //TODO：Take multiple generic type constraints into account
+                if (resultType.IsGenericType && resultType.IsGenericTypeDefinition)
                 {
-                    Debug.LogWarning($"type {type} exists more than one implements");
+                    var typeParams = resultType.GenericTypeArguments
+                        .Select(a => a.GetGenericParameterConstraints()[0])
+                        .Select(FindType)
+                        .ToArray()
+                        ;
+                    resultType = resultType.MakeGenericType(typeParams);
                 }
                 lutInfos[type] = info = new Info()
                 {
-                    resultType = subtypes[0],
+                    resultType = resultType,
                     scopeMode = DefaultScopeMode,
                 };
             }
+            return info.resultType;
+        }
+        public static object Get(Type type)
+        {
+            FindType(type);
+            var info = lutInfos[type];
             if (info.scopeMode == Single && singletons.TryGetValue(type, out var existing))
             {
                 return existing;

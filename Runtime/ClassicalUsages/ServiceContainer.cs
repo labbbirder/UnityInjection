@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 namespace com.bbbirder.injection
 {
@@ -30,41 +31,71 @@ namespace com.bbbirder.injection
         {
             singletons.Clear();
         }
+        static Type FindImplementSubclass(Type type)
+        {
+            if (type.IsAbstract || type.IsInterface)
+            {
+                var subtypes = Retriever.GetAllSubtypes(type)
+                    .Append(type)
+                    .Where(t => !t.IsInterface)
+                    .Where(t => !t.IsAbstract)
+                    .ToArray()
+                    ;
+                if (subtypes.Length == 0)
+                {
+                    throw new ArgumentException($"type {type} doesn't has an implement");
+                }
+                if (subtypes.Length > 1)
+                {
+                    Debug.LogWarning($"type {type} exists more than one implements");
+                }
+                return subtypes[0];
+            }
+            return type;
+        }
         static Type FindType(Type type)
         {
             if (!lutInfos.TryGetValue(type, out var info))
             {
-                var resultType = type;
-                if (type.IsAbstract || type.IsInterface)
+                Type resultType = default;
+
+                if (type.IsGenericType)
                 {
-                    var subtypes = Retriever.GetAllSubtypes(type)
-                        .Append(type)
-                        .Where(t => !t.IsInterface)
-                        .Where(t => !t.IsAbstract)
-                        .ToArray()
-                        ;
-                    if (subtypes.Length == 0)
+                    if (type.IsGenericTypeDefinition)
                     {
-                        throw new ArgumentException($"type {type} doesn't has an implement");
+                        throw new ArgumentException($"a unbound generic type {type}");
                     }
-                    if (subtypes.Length > 1)
+                    else
                     {
-                        Debug.LogWarning($"type {type} exists more than one implements");
+                        var unboundType = type.GetGenericTypeDefinition();
+                        var unboundTypeArguments = unboundType.GetGenericArguments();
+
+                        var resultTypeArguments = new Type[type.GenericTypeArguments.Length];
+                        type.GenericTypeArguments.Select(FindType).ToArray();
+                        for (var i = 0; i < type.GenericTypeArguments.Length; i++)
+                        {
+                            var typeArg = type.GenericTypeArguments[i];
+                            var unboudnTypeArg = unboundTypeArguments[i];
+                            var notImpl = typeArg.IsAbstract || typeArg.IsInterface;
+                            Debug.Log($"{typeArg} {unboudnTypeArg} {notImpl} {unboudnTypeArg.GenericParameterAttributes} {(unboudnTypeArg.GenericParameterAttributes | GenericParameterAttributes.Covariant)}");
+                            if (notImpl && (unboudnTypeArg.GenericParameterAttributes & GenericParameterAttributes.Covariant) == 0)
+                            {
+                                throw new($"type arg {unboudnTypeArg} must has a 'out' modifier in {unboundType}");
+                            }
+                            resultTypeArguments[i] = FindType(typeArg);
+                        }
+                        var unboundResultType = FindImplementSubclass(unboundType);
+                        Debug.Log($"{unboundResultType} {resultTypeArguments.Length}");
+                        resultType = unboundResultType.MakeGenericType(
+                            resultTypeArguments
+                        );
                     }
-                    resultType = subtypes[0];
+                }
+                else
+                {
+                    resultType = FindImplementSubclass(type);
                 }
 
-                //TODO：Construct generic type recursively
-                //TODO：Take multiple generic type constraints into account
-                if (resultType.IsGenericType && resultType.IsGenericTypeDefinition)
-                {
-                    var typeParams = resultType.GenericTypeArguments
-                        .Select(a => a.GetGenericParameterConstraints()[0])
-                        .Select(FindType)
-                        .ToArray()
-                        ;
-                    resultType = resultType.MakeGenericType(typeParams);
-                }
                 lutInfos[type] = info = new Info()
                 {
                     resultType = resultType,
@@ -91,6 +122,8 @@ namespace com.bbbirder.injection
 
         public static T Get<T>()
         {
+            var inst = Get(typeof(T));
+            Debug.Log($"inst {inst} to {typeof(T)}");
             return (T)Get(typeof(T));
         }
 

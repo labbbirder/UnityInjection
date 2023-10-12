@@ -27,7 +27,7 @@ namespace com.bbbirder.injection
     {
         static ServiceScopeMode DefaultScopeMode => Single;
         static Dictionary<Type, object> singletons = new();
-        static Dictionary<(Type desiredType, Type declaringType), Info> lutInfos = new();
+        internal static Dictionary<(Type desiredType, Type declaringType), Info> lutInfos = new();
         public static void ClearInstances()
         {
             singletons.Clear();
@@ -116,12 +116,12 @@ namespace com.bbbirder.injection
             var resultType = info.resultType;
             if (resultType.IsAbstract || resultType.IsInterface)
             {
-                var resultType2 = FindTargetType(resultType);
-                if (resultType == resultType2)
+                var info2 = GetProperInfoAndCache(resultType, null);
+                if (resultType == info2.resultType || info2.resultType.IsAssignableFrom(resultType))
                 {
                     throw new($"find {desiredType} returns a not implemented result");
                 }
-                info.resultType = resultType2;
+                info.resultType = info2.resultType;
             }
 
             return lutInfos[(desiredType, declaringType)] = info;
@@ -136,7 +136,7 @@ namespace com.bbbirder.injection
             {
                 if (!singletons.TryGetValue(info.resultType, out var inst))
                 {
-                    singletons[info.resultType] = inst = Activator.CreateInstance(info.resultType);
+                    singletons[info.resultType] = inst = Activator.CreateInstance(info.resultType, info.constructorArguments);
                 }
                 return inst;
             }
@@ -146,34 +146,10 @@ namespace com.bbbirder.injection
             }
         }
 
-        public static T Get<T>()
+        public static T Get<T>(Type declaringType = null)
         {
-            var inst = Get(typeof(T));
-            Debug.Log($"inst {inst} to {typeof(T)}");
-            return (T)Get(typeof(T));
-        }
-
-        public static void AddTransient<TContract, TResult>(Type declaringType = null)
-        where TResult : TContract
-        {
-            var typePair = (typeof(TContract), declaringType);
-            lutInfos[typePair] = new()
-            {
-                resultType = typeof(TResult),
-                scopeMode = Transient,
-            };
-        }
-
-        public static void AddSingle<TContract, TResult>(Type declaringType = null, bool noLazy = false)
-        where TResult : TContract
-        {
-            var typePair = (typeof(TContract), declaringType);
-            lutInfos[typePair] = new()
-            {
-                resultType = typeof(TResult),
-                scopeMode = Single,
-            };
-            if (noLazy) Get<TContract>();
+            var inst = Get(typeof(T), declaringType);
+            return (T)inst;
         }
 
         public static ServiceScopeMode GetScopeMode<TContract>(Type declaringType = null)
@@ -182,11 +158,104 @@ namespace com.bbbirder.injection
             return info.scopeMode;
         }
 
+        /// <summary>
+        /// for members declared in type:<typeparamref name="T"/> ...
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static BindDeclaringContext In<T>()
+        {
+            return new BindDeclaringContext(typeof(T));
+        }
+
+        /// <summary>
+        /// for any members with type:<typeparamref name="T"/> ...
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static BindSourceContext<T> Bind<T>()
+        {
+            return new BindDeclaringContext(null).Bind<T>(); // any declaring type
+        }
+
+    }
+
+    public struct BindDeclaringContext
+    {
+        Type declaringType;
+        internal BindDeclaringContext(Type declaringType)
+        {
+            this.declaringType = declaringType;
+        }
+        /// <summary>
+        /// for members with type <typeparamref name="TSource"/>...
+        /// </summary>
+        /// <typeparam name="TSource"></typeparam>
+        /// <returns></returns>
+        public BindSourceContext<TSource> Bind<TSource>()
+        {
+            return new BindSourceContext<TSource>(declaringType);
+        }
+    }
+
+    public struct BindSourceContext<TSource>
+    {
+        Type declaringType;
+        Type desiredType;
+        bool noLazy;
+        ServiceScopeMode scopeMode;
+        internal BindSourceContext(Type declaringType)
+        {
+            this.declaringType = declaringType;
+            this.desiredType = typeof(TSource);
+            this.scopeMode = ServiceScopeMode.Single;
+            this.noLazy = false;
+        }
+        /// <summary>
+        /// returns a new instance when get
+        /// </summary>
+        /// <returns></returns>
+        public BindSourceContext<TSource> AsTransient()
+        {
+            this.scopeMode = ServiceScopeMode.Transient;
+            return this;
+        }
+        /// <summary>
+        /// return the singleton when get
+        /// </summary>
+        /// <param name="noLazy">instantiate immediately</param>
+        /// <returns></returns>
+        public BindSourceContext<TSource> AsSingle(bool noLazy = false)
+        {
+            this.scopeMode = ServiceScopeMode.Single;
+            this.noLazy = noLazy;
+            return this;
+        }
+        /// <summary>
+        /// bind members with type <typeparamref name="TSource"/> to type <typeparamref name="TDest"/>
+        /// </summary>
+        /// <param name="arguments"></param>
+        /// <typeparam name="TDest"></typeparam>
+        public void To<TDest>(params object[] arguments) where TDest : TSource
+        {
+            var typePair = (desiredType, declaringType);
+            ServiceContainer.lutInfos[typePair] = new()
+            {
+                resultType = typeof(TDest),
+                scopeMode = scopeMode,
+                constructorArguments = arguments,
+            };
+            if (noLazy && scopeMode == ServiceScopeMode.Single)
+            {
+                ServiceContainer.Get(desiredType, declaringType);
+            }
+        }
     }
 
     struct Info
     {
         public Type resultType;
         public ServiceScopeMode scopeMode;
+        public object[] constructorArguments;
     }
 }

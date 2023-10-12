@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using com.bbbirder.injection;
+using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Scripting;
 
@@ -176,16 +177,19 @@ namespace com.bbbirder.injection
             }
         }
 
+        [HideInCallstack]
         static TRet MetaGet<T, TRet, TDecl>(T _) where T : class where TRet : class
         {
             return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
+        [HideInCallstack]
         static TRet StaticMetaGet<TRet, TDecl>() where TRet : class
         {
             return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
+        [HideInCallstack]
         static object GetContainerInst(Type desiredType, Type declaringType)
         {
             return ServiceContainer.Get(desiredType, declaringType);

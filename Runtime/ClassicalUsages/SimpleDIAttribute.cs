@@ -99,20 +99,22 @@ namespace com.bbbirder.injection
             var memberType = GetMemberType(targetMember);
             var isStatic = IsStatic(targetMember);
             var canWrite = CanWrite(targetMember);
+            // var declaringType = targetMember.DeclaringType;
             if (isStatic)
             {
                 if (canWrite)
                 {
                     // set on fix instantly
-                    yield return InjectionInfo.Create(()=>{
-                        SetMemberValue(targetMember, null, GetContainerInst(memberType));
+                    yield return InjectionInfo.Create(() =>
+                    {
+                        SetMemberValue(targetMember, null, GetContainerInst(memberType, targetType));
                     });
                 }
                 else
                 {
                     // inject get method
                     var propertyInfo = targetMember as PropertyInfo;
-                    var fixingMethod = s_StaticMetaMethodInfo.MakeGenericMethod(propertyInfo.PropertyType);
+                    var fixingMethod = s_StaticMetaMethodInfo.MakeGenericMethod(propertyInfo.PropertyType, targetType);
                     yield return InjectionInfo.Create(
                         propertyInfo.GetGetMethod(nonPublic: true),
                         fixingMethod
@@ -156,7 +158,7 @@ namespace com.bbbirder.injection
                         );
                         void fixedContructor(object inst)
                         {
-                            SetMemberValue(targetMember, inst, GetContainerInst(memberType));
+                            SetMemberValue(targetMember, inst, GetContainerInst(memberType, targetType));
                             rawAction.GetType().GetMethod("Invoke").Invoke(rawAction, new[] { inst });
                         }
                     }
@@ -165,7 +167,7 @@ namespace com.bbbirder.injection
                 {
                     // inject get method
                     var propertyInfo = targetMember as PropertyInfo;
-                    var fixingMethod = s_MetaMethodInfo.MakeGenericMethod(targetType, propertyInfo.PropertyType);
+                    var fixingMethod = s_MetaMethodInfo.MakeGenericMethod(targetType, propertyInfo.PropertyType, targetType);
                     yield return InjectionInfo.Create(
                         propertyInfo.GetGetMethod(nonPublic: true),
                         fixingMethod
@@ -174,19 +176,19 @@ namespace com.bbbirder.injection
             }
         }
 
-        static TRet MetaGet<T, TRet>(T _) where T : class where TRet : class
+        static TRet MetaGet<T, TRet, TDecl>(T _) where T : class where TRet : class
         {
-            return GetContainerInst(typeof(TRet)) as TRet;
+            return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
-        static TRet StaticMetaGet<TRet>() where TRet : class
+        static TRet StaticMetaGet<TRet, TDecl>() where TRet : class
         {
-            return GetContainerInst(typeof(TRet)) as TRet;
+            return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
-        static object GetContainerInst(Type type)
+        static object GetContainerInst(Type desiredType, Type declaringType)
         {
-            return ServiceContainer.Get(type);
+            return ServiceContainer.Get(desiredType, declaringType);
         }
     }
 }

@@ -22,11 +22,12 @@ namespace com.bbbirder.injection
     // }
 
 
-    public static class ServiceContainer //: IServiceContainer
+    public static class ServiceContainer
+    //: IServiceContainer
     {
         static ServiceScopeMode DefaultScopeMode => Single;
         static Dictionary<Type, object> singletons = new();
-        static Dictionary<Type, Info> lutInfos = new();
+        static Dictionary<(Type desiredType, Type declaringType), Info> lutInfos = new();
         public static void ClearInstances()
         {
             singletons.Clear();
@@ -53,71 +54,96 @@ namespace com.bbbirder.injection
             }
             return type;
         }
-        static Type FindType(Type type)
+        static Type FindTargetType(Type type)
         {
-            if (!lutInfos.TryGetValue(type, out var info))
+            if (!type.IsGenericType) return FindImplementSubclass(type);
+
+            if (type.IsGenericTypeDefinition)
             {
-                Type resultType = default;
-
-                if (type.IsGenericType)
-                {
-                    if (type.IsGenericTypeDefinition)
-                    {
-                        throw new ArgumentException($"a unbound generic type {type}");
-                    }
-                    else
-                    {
-                        var unboundType = type.GetGenericTypeDefinition();
-                        var unboundTypeArguments = unboundType.GetGenericArguments();
-
-                        var resultTypeArguments = new Type[type.GenericTypeArguments.Length];
-                        type.GenericTypeArguments.Select(FindType).ToArray();
-                        for (var i = 0; i < type.GenericTypeArguments.Length; i++)
-                        {
-                            var typeArg = type.GenericTypeArguments[i];
-                            var unboudnTypeArg = unboundTypeArguments[i];
-                            var notImpl = typeArg.IsAbstract || typeArg.IsInterface;
-                            Debug.Log($"{typeArg} {unboudnTypeArg} {notImpl} {unboudnTypeArg.GenericParameterAttributes} {(unboudnTypeArg.GenericParameterAttributes | GenericParameterAttributes.Covariant)}");
-                            if (notImpl && (unboudnTypeArg.GenericParameterAttributes & GenericParameterAttributes.Covariant) == 0)
-                            {
-                                throw new($"type arg {unboudnTypeArg} must has a 'out' modifier in {unboundType}");
-                            }
-                            resultTypeArguments[i] = FindType(typeArg);
-                        }
-                        var unboundResultType = FindImplementSubclass(unboundType);
-                        Debug.Log($"{unboundResultType} {resultTypeArguments.Length}");
-                        resultType = unboundResultType.MakeGenericType(
-                            resultTypeArguments
-                        );
-                    }
-                }
-                else
-                {
-                    resultType = FindImplementSubclass(type);
-                }
-
-                lutInfos[type] = info = new Info()
-                {
-                    resultType = resultType,
-                    scopeMode = DefaultScopeMode,
-                };
+                throw new ArgumentException($"a unbound generic type {type}");
             }
-            return info.resultType;
+            var unboundType = type.GetGenericTypeDefinition();
+            var unboundTypeArguments = unboundType.GetGenericArguments();
+
+            var resultTypeArguments = new Type[type.GenericTypeArguments.Length];
+
+            for (var i = 0; i < type.GenericTypeArguments.Length; i++)
+            {
+                var typeArg = type.GenericTypeArguments[i];
+                var unboudnTypeArg = unboundTypeArguments[i];
+                var notImpl = typeArg.IsAbstract || typeArg.IsInterface;
+                // Debug.Log($"{typeArg} {unboudnTypeArg} {notImpl} {unboudnTypeArg.GenericParameterAttributes} {unboudnTypeArg.GenericParameterAttributes | GenericParameterAttributes.Covariant}");
+                if (notImpl && (unboudnTypeArg.GenericParameterAttributes & GenericParameterAttributes.Covariant) == 0)
+                {
+                    throw new($"type arg {unboudnTypeArg} must has a 'out' modifier in {unboundType}");
+                }
+                resultTypeArguments[i] = FindTargetType(typeArg);
+            }
+            var unboundResultType = FindImplementSubclass(unboundType);
+            // Debug.Log($"{unboundResultType} {resultTypeArguments.Length}");
+            return unboundResultType.MakeGenericType(resultTypeArguments);
         }
-        public static object Get(Type type)
+
+
+        static Info GetInfoWithCache(Type desiredType, Type declaringType)
         {
-            FindType(type);
-            var info = lutInfos[type];
-            if (info.scopeMode == Single && singletons.TryGetValue(type, out var existing))
+            Info info;
+            if (lutInfos.TryGetValue((desiredType, declaringType), out info)) return info; // first in order
+
+            foreach (var interfType in declaringType.GetInterfaces())
             {
-                return existing;
+                if (lutInfos.TryGetValue((desiredType, interfType), out info)) return info;
             }
-            var inst = Activator.CreateInstance(info.resultType);
-            if (info.scopeMode == Single && inst != null)
+            for (var curType = declaringType.BaseType; curType != null; curType = curType.BaseType)
             {
-                singletons[type] = inst;
+                if (lutInfos.TryGetValue((desiredType, curType), out info)) return info;
             }
-            return inst;
+
+            if (lutInfos.TryGetValue((desiredType, null), out info)) return info; // default cache
+
+            info.resultType = FindTargetType(desiredType);
+            info.scopeMode = Single; // default scope mode
+            lutInfos[(desiredType, null)] = info;
+
+            return info;
+        }
+
+
+        static Info GetProperInfoAndCache(Type desiredType, Type declaringType)
+        {
+            var info = GetInfoWithCache(desiredType, declaringType);
+
+            var resultType = info.resultType;
+            if (resultType.IsAbstract || resultType.IsInterface)
+            {
+                var resultType2 = FindTargetType(resultType);
+                if (resultType == resultType2)
+                {
+                    throw new($"find {desiredType} returns a not implemented result");
+                }
+                info.resultType = resultType2;
+            }
+
+            return lutInfos[(desiredType, declaringType)] = info;
+        }
+
+
+        public static object Get(Type desiredType, Type declaringType = null)
+        {
+            var info = GetProperInfoAndCache(desiredType, declaringType);
+
+            if (info.scopeMode == Single)
+            {
+                if (!singletons.TryGetValue(info.resultType, out var inst))
+                {
+                    singletons[info.resultType] = inst = Activator.CreateInstance(info.resultType);
+                }
+                return inst;
+            }
+            else
+            {
+                return Activator.CreateInstance(info.resultType);
+            }
         }
 
         public static T Get<T>()
@@ -127,18 +153,22 @@ namespace com.bbbirder.injection
             return (T)Get(typeof(T));
         }
 
-        public static void AddTransient<TContract, TResult>()
+        public static void AddTransient<TContract, TResult>(Type declaringType = null)
+        where TResult : TContract
         {
-            lutInfos[typeof(TContract)] = new()
+            var typePair = (typeof(TContract), declaringType);
+            lutInfos[typePair] = new()
             {
                 resultType = typeof(TResult),
                 scopeMode = Transient,
             };
         }
 
-        public static void AddSingle<TContract, TResult>(bool noLazy = false)
+        public static void AddSingle<TContract, TResult>(Type declaringType = null, bool noLazy = false)
+        where TResult : TContract
         {
-            lutInfos[typeof(TContract)] = new()
+            var typePair = (typeof(TContract), declaringType);
+            lutInfos[typePair] = new()
             {
                 resultType = typeof(TResult),
                 scopeMode = Single,
@@ -146,16 +176,14 @@ namespace com.bbbirder.injection
             if (noLazy) Get<TContract>();
         }
 
-        public static ServiceScopeMode GetScopeMode<TContract>()
+        public static ServiceScopeMode GetScopeMode<TContract>(Type declaringType = null)
         {
-            if (lutInfos.TryGetValue(typeof(TContract), out var info))
-            {
-                return info.scopeMode;
-            }
-            return DefaultScopeMode;
+            var info = GetInfoWithCache(typeof(TContract), declaringType);
+            return info.scopeMode;
         }
 
     }
+
     struct Info
     {
         public Type resultType;

@@ -26,7 +26,7 @@ namespace com.bbbirder.injection
     //: IServiceContainer
     {
         static ServiceScopeMode DefaultScopeMode => Single;
-        static Dictionary<Type, object> singletons = new();
+        internal static Dictionary<Type, object> singletons = new();
         internal static Dictionary<(Type desiredType, Type declaringType), Info> lutInfos = new();
         public static void ClearInstances()
         {
@@ -249,6 +249,19 @@ namespace com.bbbirder.injection
             {
                 ServiceContainer.Get(desiredType, declaringType);
             }
+        }
+
+        public void To<TDest>(Func<TDest> creator) where TDest : TSource
+        {
+            var typePair = (desiredType, declaringType);
+            Debug.Log($"to {scopeMode} {typeof(TDest)}");
+            ServiceContainer.lutInfos[typePair] = new()
+            {
+                resultType = typeof(TDest),
+                scopeMode = scopeMode,
+                // constructorArguments = arguments,
+            };
+            ServiceContainer.singletons[typeof(TDest)] = creator();
         }
     }
 

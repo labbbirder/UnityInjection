@@ -177,19 +177,25 @@ namespace com.bbbirder.injection
             }
         }
 
+        #if UNITY_2021_3_OR_NEWER
         [HideInCallstack]
+        #endif
         static TRet MetaGet<T, TRet, TDecl>(T _) where T : class where TRet : class
         {
             return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
+        #if UNITY_2021_3_OR_NEWER
         [HideInCallstack]
+        #endif
         static TRet StaticMetaGet<TRet, TDecl>() where TRet : class
         {
             return GetContainerInst(typeof(TRet), typeof(TDecl)) as TRet;
         }
 
+        #if UNITY_2021_3_OR_NEWER
         [HideInCallstack]
+        #endif
         static object GetContainerInst(Type desiredType, Type declaringType)
         {
             return ServiceContainer.Get(desiredType, declaringType);

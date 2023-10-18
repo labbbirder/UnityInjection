@@ -127,6 +127,11 @@ namespace com.bbbirder.injection
             return lutInfos[(desiredType, declaringType)] = info;
         }
 
+        static object CreateInstance(Info info)
+        {
+            if (info.creator != null) return info.creator();
+            return Activator.CreateInstance(info.resultType, info.constructorArguments);
+        }
 
         public static object Get(Type desiredType, Type declaringType = null)
         {
@@ -136,13 +141,13 @@ namespace com.bbbirder.injection
             {
                 if (!singletons.TryGetValue(info.resultType, out var inst))
                 {
-                    singletons[info.resultType] = inst = Activator.CreateInstance(info.resultType, info.constructorArguments);
+                    singletons[info.resultType] = inst = CreateInstance(info);
                 }
                 return inst;
             }
             else
             {
-                return Activator.CreateInstance(info.resultType);
+                return CreateInstance(info);
             }
         }
 
@@ -165,7 +170,17 @@ namespace com.bbbirder.injection
         /// <returns></returns>
         public static BindDeclaringContext In<T>()
         {
-            return new BindDeclaringContext(typeof(T));
+            return In(typeof(T));
+        }
+
+        /// <summary>
+        /// for members declared in <paramref name="targetType"/> ...
+        /// </summary>
+        /// <param name="targetType"></param>
+        /// <returns></returns>
+        public static BindDeclaringContext In(Type targetType)
+        {
+            return new BindDeclaringContext(targetType);
         }
 
         /// <summary>
@@ -244,6 +259,7 @@ namespace com.bbbirder.injection
                 resultType = typeof(TDest),
                 scopeMode = scopeMode,
                 constructorArguments = arguments,
+                creator = null,
             };
             if (noLazy && scopeMode == ServiceScopeMode.Single)
             {
@@ -260,8 +276,12 @@ namespace com.bbbirder.injection
                 resultType = typeof(TDest),
                 scopeMode = scopeMode,
                 // constructorArguments = arguments,
+                creator = () => creator()
             };
-            ServiceContainer.singletons[typeof(TDest)] = creator();
+            if (noLazy && scopeMode == ServiceScopeMode.Single)
+            {
+                ServiceContainer.Get(desiredType, declaringType);
+            }
         }
     }
 
@@ -270,5 +290,6 @@ namespace com.bbbirder.injection
         public Type resultType;
         public ServiceScopeMode scopeMode;
         public object[] constructorArguments;
+        public Func<object> creator;
     }
 }

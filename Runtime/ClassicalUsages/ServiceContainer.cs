@@ -90,13 +90,16 @@ namespace com.bbbirder.injection
             Info info;
             if (lutInfos.TryGetValue((desiredType, declaringType), out info)) return info; // first in order
 
-            foreach (var interfType in declaringType.GetInterfaces())
+            if (declaringType != null)
             {
-                if (lutInfos.TryGetValue((desiredType, interfType), out info)) return info;
-            }
-            for (var curType = declaringType.BaseType; curType != null; curType = curType.BaseType)
-            {
-                if (lutInfos.TryGetValue((desiredType, curType), out info)) return info;
+                foreach (var interfType in declaringType.GetInterfaces())
+                {
+                    if (lutInfos.TryGetValue((desiredType, interfType), out info)) return info;
+                }
+                for (var curType = declaringType.BaseType; curType != null; curType = curType.BaseType)
+                {
+                    if (lutInfos.TryGetValue((desiredType, curType), out info)) return info;
+                }
             }
 
             if (lutInfos.TryGetValue((desiredType, null), out info)) return info; // default cache

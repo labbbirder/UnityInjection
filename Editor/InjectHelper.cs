@@ -9,6 +9,7 @@ using UnityEngine.TestTools;
 using UnityEditorInternal;
 using UnityEditor;
 using UnityEditor.Compilation;
+using UnityEngine.Assertions;
 
 namespace com.bbbirder.injection.editor
 {
@@ -60,10 +61,10 @@ namespace com.bbbirder.injection.editor
                 return false;
             }
 
-            foreach (var group in injections.GroupBy(inj=>inj.InjectedMethod))
+            foreach (var group in injections.GroupBy(inj => inj.InjectedMethod))
             {
                 var injectedMethod = group.Key;
-                if(injectedMethod is null) continue;
+                if (injectedMethod is null) continue;
                 var type = injectedMethod.DeclaringType;
                 var methodName = injectedMethod.Name;
                 var targetType = GetCorrespondingType(targetAssembly.MainModule, type);
@@ -129,8 +130,9 @@ namespace com.bbbirder.injection.editor
         static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType, MethodDefinition targetMethod)
         {
             var originName = Constants.GetOriginMethodName(targetMethod.Name);
-            var duplicatedMethod = targetType.Methods.FirstOrDefault(m=>m.Name==originName);
-            if(duplicatedMethod is null){
+            var duplicatedMethod = targetType.Methods.FirstOrDefault(m => m.Name == originName);
+            if (duplicatedMethod is null)
+            {
                 duplicatedMethod = targetMethod.Clone();
                 duplicatedMethod.IsPrivate = true;
                 duplicatedMethod.Name = originName;
@@ -161,11 +163,15 @@ namespace com.bbbirder.injection.editor
             // var delegateType = targetType.Module.CreateDelegateType(Settings.GetDelegateTypeName(methodName),targetType,ReturnType,delegateParameters);
             // targetType.NestedTypes.Add(delegateType);
 
-            var genName = targetMethod.IsReturnVoid() ? "System.Action`" : "System.Func`";
+            var genName = targetMethod.IsReturnVoid() ? "System.Action" : "System.Func";
             var genPCnt = Parameters.Count;
             if (!ReturnVoid) genPCnt++;
             if (HasThis) genPCnt++;
-            var rawGenType = targetType.Module.FindType(Type.GetType(genName + genPCnt));
+            if (genPCnt > 0)
+            {
+                genName += "`" + genPCnt;
+            }
+            var rawGenType = targetType.Module.FindType(Type.GetType(genName));
             var genType = targetType.Module.ImportReference(rawGenType);
             var genInst = new GenericInstanceType(genType);
             if (HasThis)
@@ -183,7 +189,7 @@ namespace com.bbbirder.injection.editor
                     genInst);
                 targetType.Fields.Add(sfldInject);
             }
-            
+
             // var sfldOrigin = new FieldDefinition(originName,
             //     FieldAttributes.Private|FieldAttributes.Static|FieldAttributes.Assembly,
             //     targetType.Module.ImportReference(typeof(Delegate)));
@@ -364,11 +370,13 @@ namespace com.bbbirder.injection.editor
             => td.Module.ImportReference(td.Methods.FirstOrDefault(m => m.Name == methodName));
         internal static TypeDefinition FindType(this ModuleDefinition md, Type type)
         {
+            Assert.IsNotNull(type);
             HashSet<string> knownAssemblyNames = new();
             List<ModuleDefinition> modules = new();
             GetModules(md);
             foreach (var m in modules)
             {
+                Assert.IsNotNull(m);
                 var tp = m.GetType(type.Namespace, type.Name);
                 if (null != tp)
                 {

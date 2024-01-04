@@ -11,8 +11,8 @@
   },
   "samples": [
     {
-      "displayName": "DefaultSample",
-      "path": "Samples~/"
+      "displayName": "Method Fix",
+      "path": "Samples~/MethodFix"
     }
   ],
   "gitHead": "18b3c53f1dec43ebd854d02b30959cf96962da13"

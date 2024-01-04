@@ -61,7 +61,7 @@ using com.bbbirder.injection;
 using UnityEngine;
 
 // this illustration shows how to hook `Debug.Log`
-public class FirstPatch:IInjection
+public class FirstPatch
 {
     // the field to be overwrited to original method
     static Action<object> RawLog;
@@ -86,11 +86,9 @@ public class FirstPatch:IInjection
 
 ```
 
-`FixerAttribute`接收3个参数：
+自定类继承自`IInjection`，并实现接口
 
-  1. 目标类型
-  2. 目标方法名称
-  3. 用于保存原方法的函数成员名称
+`ProvideInjections`中返回一个或多个`InjectionInfo`
 
 初始化的时候调用：
 

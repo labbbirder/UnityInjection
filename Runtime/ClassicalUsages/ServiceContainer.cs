@@ -48,7 +48,17 @@ namespace com.bbbirder.injection
                 }
                 if (subtypes.Length > 1)
                 {
-                    Debug.LogWarning($"type {type} exists more than one implements");
+                    var orderedTypeGroups = subtypes
+                        .GroupBy(tp => tp.GetCustomAttribute<OrderDIAttribute>()?.order ?? 0)
+                        .OrderBy(g => g.Key);
+                    foreach (var g in orderedTypeGroups)
+                    {
+                        if (g.Count() > 1)
+                        {
+                            Debug.LogWarning($"type {type} exists more than one implements, sharing a priority order {g.Key}: {string.Join(",", g.AsEnumerable().Select(t => t.FullName))}");
+                        }
+                        return g.First();
+                    }
                 }
                 return subtypes[0];
             }

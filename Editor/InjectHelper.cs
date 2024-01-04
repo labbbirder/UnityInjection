@@ -222,6 +222,10 @@ namespace com.bbbirder.injection.editor
             var ReturnType = targetMethod.ReturnType;
 
             //redirect method
+            if (!targetMethod.HasBody)
+            {
+                throw new ArgumentException($"method {targetMethod.Name} in type {targetType.Name} dont have a body");
+            }
             targetMethod.Body.Instructions.Clear();
             var delegateType = delegateField.FieldType.Resolve();
             var ilProcessor = targetMethod.Body.GetILProcessor();

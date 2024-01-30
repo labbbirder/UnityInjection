@@ -44,7 +44,8 @@ namespace com.bbbirder.injection
                     ;
                 if (subtypes.Length == 0)
                 {
-                    throw new ArgumentException($"type {type} doesn't has an implement");
+                    // throw new ArgumentException($"type {type} doesn't has an implement");
+                    return null;
                 }
                 if (subtypes.Length > 1)
                 {
@@ -90,6 +91,7 @@ namespace com.bbbirder.injection
                 resultTypeArguments[i] = FindTargetType(typeArg);
             }
             var unboundResultType = FindImplementSubclass(unboundType);
+            if (unboundResultType is null) return unboundResultType;
             // Debug.Log($"{unboundResultType} {resultTypeArguments.Length}");
             return unboundResultType.MakeGenericType(resultTypeArguments);
         }
@@ -127,6 +129,12 @@ namespace com.bbbirder.injection
             var info = GetInfoWithCache(desiredType, declaringType);
 
             var resultType = info.resultType;
+            if (resultType is null)
+            {
+                // dont cache on missing implementation
+                return info;
+            }
+
             if (resultType.IsAbstract || resultType.IsInterface)
             {
                 var info2 = GetProperInfoAndCache(resultType, null);
@@ -143,12 +151,20 @@ namespace com.bbbirder.injection
         static object CreateInstance(Info info)
         {
             if (info.creator != null) return info.creator();
+            if (info.resultType == null) return null;
             return Activator.CreateInstance(info.resultType, info.constructorArguments);
         }
 
-        public static object Get(Type desiredType, Type declaringType = null)
+        public static object Get(Type desiredType, Type declaringType = null, bool throwOnNoImplementations = true)
         {
             var info = GetProperInfoAndCache(desiredType, declaringType);
+
+            if (info.resultType is null)
+            {
+                if(throwOnNoImplementations) 
+                    throw new ArgumentException($"type {desiredType} doesn't has an implement");
+                return null;
+            }
 
             if (info.scopeMode == Single)
             {

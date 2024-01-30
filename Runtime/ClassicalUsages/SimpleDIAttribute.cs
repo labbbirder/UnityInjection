@@ -198,7 +198,7 @@ namespace com.bbbirder.injection
         #endif
         static object GetContainerInst(Type desiredType, Type declaringType)
         {
-            return ServiceContainer.Get(desiredType, declaringType);
+            return ServiceContainer.Get(desiredType, declaringType, false);
         }
     }
 }

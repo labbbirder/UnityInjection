@@ -51,16 +51,17 @@ namespace com.bbbirder.injection
         /// <returns></returns>
         public static bool IsInjected(Type type)
         {
-            var mark = type.Assembly.GetType($"{Constants.InjectedMarkNamespace}.{Constants.InjectedMarkName}");
+            var mark = type.Assembly.GetType($"{Constants.INJECTED_MARK_NAMESPACE}.{Constants.INJECTED_MARK_NAME}");
             return mark != null;
         }
 
         public static MethodInfo GetOriginMethodFor(MethodInfo targetMethod)
         {
-            var oriName = Constants.GetOriginMethodName(targetMethod.Name);
+            var oriName = Constants.GetOriginMethodName(targetMethod.Name, targetMethod.GetSignature());
             return targetMethod.DeclaringType.GetMethod(oriName, bindingFlags);
         }
-        static void FixMethod(InjectionInfo injection)
+
+        public static void FixMethod(InjectionInfo injection)
         {
             injection.onStartFix?.Invoke();
             var targetMethod = injection.InjectedMethod;
@@ -80,7 +81,8 @@ namespace com.bbbirder.injection
 
             try
             {
-                sfld = targetType.GetField(Constants.GetInjectedFieldName(methodName), bindingFlags ^ BindingFlags.Instance);
+                var sfldName = Constants.GetInjectedFieldName(methodName, targetMethod.GetSignature());
+                sfld = targetType.GetField(sfldName, bindingFlags ^ BindingFlags.Instance);
             }
             catch (Exception e)
             {
@@ -112,7 +114,8 @@ namespace com.bbbirder.injection
             }
 
             // set overwrite origin field
-            var originMethod = targetType.GetMethod(Constants.GetOriginMethodName(methodName), bindingFlags);
+            var originName = Constants.GetOriginMethodName(methodName, targetMethod.GetSignature());
+            var originMethod = targetType.GetMethod(originName, bindingFlags);
             try
             {
                 var oriDelegate = originMethod.CreateDelegate(sfld.FieldType);
@@ -217,6 +220,9 @@ namespace com.bbbirder.injection
             }
             return null;
         }
+
+        public static string GetSignature(this MethodBase m)
+            => $"{m.Name}({string.Join(",", m.GetParameters().Select(p => p.ParameterType.FullName))})";
 
         static InjectionInfo[] m_allInjections;
         public static InjectionInfo[] allInjections => m_allInjections ??= GetAllInjections();

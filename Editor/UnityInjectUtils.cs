@@ -235,13 +235,14 @@ namespace com.bbbirder.injection.editor
                     Debug.Log($"Inject success: {assemblyPath}");
                 return isWritten;
             }
-            catch
+            catch (Exception e)
             {
+                Debug.LogException(e);
                 if (IsEngineAssembly)
                 {
                     File.Copy(backPath, assemblyPath, true);
                 }
-                throw;
+                throw e;
             }
 
         }

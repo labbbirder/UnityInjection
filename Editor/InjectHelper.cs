@@ -53,8 +53,8 @@ namespace com.bbbirder.injection.editor
 
             //mark check
             var injected = targetAssembly.MainModule.Types.Any(t =>
-                Constants.InjectedMarkName == t.Name &&
-                Constants.InjectedMarkNamespace == t.Namespace);
+                Constants.INJECTED_MARK_NAME == t.Name &&
+                Constants.INJECTED_MARK_NAMESPACE == t.Namespace);
             if (injected)
             {
                 targetAssembly.Release();
@@ -72,7 +72,7 @@ namespace com.bbbirder.injection.editor
                 {
                     throw new($"Cannot find Type `{type}` in target assembly {inputAssemblyPath}");
                 }
-                var targetMethod = targetType.FindMethod(methodName).Resolve();
+                var targetMethod = targetType.FindMethod(injectedMethod.GetSignature()).Resolve();
                 if (targetMethod is null)
                 {
                     throw new($"Cannot find Method `{methodName}` in Type `{type}`");
@@ -88,8 +88,8 @@ namespace com.bbbirder.injection.editor
 
             //mark make
             var InjectedMark = new TypeDefinition(
-                Constants.InjectedMarkNamespace,
-                Constants.InjectedMarkName,
+                Constants.INJECTED_MARK_NAMESPACE,
+                Constants.INJECTED_MARK_NAME,
                 TypeAttributes.Class,
                 targetAssembly.MainModule.TypeSystem.Object);
             targetAssembly.MainModule.Types.Add(InjectedMark);
@@ -127,9 +127,11 @@ namespace com.bbbirder.injection.editor
                 }
             }
         }
+
+
         static MethodDefinition DuplicateOriginalMethod(this TypeDefinition targetType, MethodDefinition targetMethod)
         {
-            var originName = Constants.GetOriginMethodName(targetMethod.Name);
+            var originName = Constants.GetOriginMethodName(targetMethod.Name, targetMethod.GetSignature());
             var duplicatedMethod = targetType.Methods.FirstOrDefault(m => m.Name == originName);
             if (duplicatedMethod is null)
             {
@@ -140,6 +142,8 @@ namespace com.bbbirder.injection.editor
             }
             return duplicatedMethod;
         }
+
+
         static void Release(this AssemblyDefinition assemblyDefinition)
         {
             if (assemblyDefinition == null) return;
@@ -147,9 +151,11 @@ namespace com.bbbirder.injection.editor
             assemblyDefinition.MainModule.SymbolReader?.Dispose();
             assemblyDefinition.Dispose();
         }
+
+
         static (FieldDefinition field, MethodReference fieldInvokeMethod) AddInjectField(this TypeDefinition targetType, MethodDefinition targetMethod, string methodName)
         {
-            var injectionName = Constants.GetInjectedFieldName(methodName);
+            var injectionName = Constants.GetInjectedFieldName(methodName, targetMethod.GetSignature());
             var HasThis = targetMethod.HasThis;
             var Parameters = targetMethod.Parameters;
             var GenericParameters = targetMethod.GenericParameters;
@@ -194,7 +200,7 @@ namespace com.bbbirder.injection.editor
             //     FieldAttributes.Private|FieldAttributes.Static|FieldAttributes.Assembly,
             //     targetType.Module.ImportReference(typeof(Delegate)));
             // var resMth = genInst.Resolve();
-            var genMtd = rawGenType.FindMethod("Invoke");
+            var genMtd = rawGenType.FindMethodByName("Invoke");
             // genMtd.DeclaringType = genInst;
             var mnlMth = new MethodReference(genMtd.Name, genMtd.ReturnType, genInst)
             {
@@ -207,6 +213,7 @@ namespace com.bbbirder.injection.editor
 
             return (sfldInject, mnlMth);
         }
+
 
         static void AddInjectionMethod(
             this TypeDefinition targetType,
@@ -285,19 +292,8 @@ namespace com.bbbirder.injection.editor
             ilProcessor.Append(Instruction.Create(OpCodes.Nop));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
         }
-        // static void InjectCctor(this TypeDefinition targetType,FieldDefinition field){
-        //     var cctorMethod = targetType.Methods.FirstOrDefault(m=>m.Name==".cctor");
-        //     if(cctorMethod is null){
-        //         cctorMethod = new MethodDefinition(".cctor",MethodAttributes.Static|MethodAttributes.Private,targetType.Module.TypeSystem.Void);
-        //         targetType.Methods.Add(cctorMethod);
-        //     }
-        //     var ilProcessor = cctorMethod.Body.GetILProcessor();
-        //     var bdis = cctorMethod.Body.Instructions;
-        //     var insertPoint = bdis[0];
-        //     ilProcessor.InsertBefore(insertPoint,Instruction.Create(OpCodes.Ldsfld,field));
-        //     ilProcessor.InsertBefore(insertPoint,Instruction.Create(OpCodes.Ldsfld,field));
-        // }
-        // =>md.GetType(type.ToString(),true);
+
+
         static Instruction createLdarg(this ILProcessor ilProcessor, int i)
         {
             if (i < s_ldargs.Length)
@@ -313,6 +309,7 @@ namespace com.bbbirder.injection.editor
                 return ilProcessor.Create(OpCodes.Ldarg, (short)i);
             }
         }
+
 
         /// <summary>
         /// Create a clone of the given method definition
@@ -336,6 +333,7 @@ namespace com.bbbirder.injection.editor
             }
             return result;
         }
+
 
         /// <summary>
         /// Create a clone of the given method body
@@ -362,6 +360,7 @@ namespace com.bbbirder.injection.editor
             return result;
         }
 
+
         internal static bool IsReturnVoid(this MethodDefinition md)
             => md.ReturnType.ToString() == voidType.ToString();
         internal static bool IsReturnValueType(this MethodDefinition md)
@@ -370,8 +369,15 @@ namespace com.bbbirder.injection.editor
             => td.ToString() != voidType.ToString() && !td.IsPrimitive;
         internal static Type GetUnderlyingType(this TypeReference td)
             => td.IsPrimitive ? Type.GetType(td.Name) : objType;
-        internal static MethodReference FindMethod(this TypeDefinition td, string methodName)
-            => td.Module.ImportReference(td.Methods.FirstOrDefault(m => m.Name == methodName));
+
+        internal static string GetSignature(this MethodDefinition md)
+            => $"{md.Name}({string.Join(",", md.Parameters.Select(p => p.ParameterType.FullName))})";
+
+        internal static MethodReference FindMethod(this TypeDefinition td, string methodSignature)
+            => td.Module.ImportReference(td.Methods.FirstOrDefault(m => m.GetSignature().Equals(methodSignature)));
+
+        internal static MethodReference FindMethodByName(this TypeDefinition td, string methodName)
+            => td.Module.ImportReference(td.Methods.FirstOrDefault(m => m.Name.Equals(methodName)));
         internal static TypeDefinition FindType(this ModuleDefinition md, Type type)
         {
             Assert.IsNotNull(type);
@@ -421,11 +427,15 @@ namespace com.bbbirder.injection.editor
             }
             // return new TypeReference(type.Namespace,type.Name,md,md.TypeSystem.CoreLibrary);
         }
+
+
         internal static TypeReference FindType<T>(this ModuleDefinition md)
         {
             return FindType(md, typeof(T));
             // return new TypeReference(typeof(T).Namespace,typeof(T).Name,md,md.TypeSystem.CoreLibrary);
         }
+
+
         internal static TypeDefinition CreateDelegateType(this ModuleDefinition assembly, string name, TypeDefinition declaringType,
                 TypeReference returnType, IEnumerable<TypeReference> parameters)
         {
@@ -481,6 +491,8 @@ namespace com.bbbirder.injection.editor
 
             return dt;
         }
+
+        
         static Type voidType = typeof(void);
         static Type objType = typeof(object);
         static OpCode[] s_ldargs = new[] { OpCodes.Ldarg_0, OpCodes.Ldarg_1, OpCodes.Ldarg_2, OpCodes.Ldarg_3 };

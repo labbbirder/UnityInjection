@@ -1,18 +1,28 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
-namespace com.bbbirder.injection {
-    public static class Constants{
-        public const string InjectedMarkNamespace = "com.bbbirder";
-        public const string InjectedMarkName = "InjectedMarkAttribute";
-        public static string GetDelegateTypeName(string methodName)
-            => strBuilder.Clear().Append("__").Append(methodName).Append("Delegate").ToString();
+namespace com.bbbirder.injection
+{
+    public static class Constants
+    {
+        public const string INJECTED_MARK_NAMESPACE = "com.bbbirder";
+        public const string INJECTED_MARK_NAME = "InjectedMarkAttribute";
 
-        public static string GetInjectedFieldName(string methodName)
-            => strBuilder.Clear().Append("s_").Append(methodName).Append("_injection").ToString();
+        public static string GetInjectedFieldName(string methodName, string methodSignature)
+            => strBuilder.Clear().Append("_injection_field+").Append(methodName).Append(MD5Hash(methodSignature)).ToString();
 
-        public static string GetOriginMethodName(string methodName)
-            => strBuilder.Clear().Append("origin_").Append(methodName).ToString();
+        public static string GetOriginMethodName(string methodName, string methodSignature)
+            => strBuilder.Clear().Append("_injection_origin+").Append(methodName).Append(MD5Hash(methodSignature)).ToString();
 
+        static string MD5Hash(string rawContent)
+        {
+            var md5 = MD5.Create();
+            var buffer = md5.ComputeHash(Encoding.UTF8.GetBytes(rawContent));
+            return string.Concat(buffer.Select(b => b.ToString("X")));
+        }
 
         static StringBuilder strBuilder = new();
     }

@@ -3,6 +3,7 @@ using DG.DemiLib.Attributes;
 
 namespace com.bbbirder.injection
 {
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, Inherited = false)]
     public class OrderDIAttribute : Attribute
     {
         internal int order;

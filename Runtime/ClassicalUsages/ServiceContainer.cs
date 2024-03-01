@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+
 namespace com.bbbirder.injection
 {
     using static ServiceScopeMode;
@@ -32,39 +33,73 @@ namespace com.bbbirder.injection
         {
             singletons.Clear();
         }
+
+        public static int GetDeriveDistance(Type subType, Type baseType)
+        {
+            if ((baseType ?? subType) == null) return 0;
+            if (baseType == null) return -1;
+            if (baseType.IsInterface)
+            {
+                var dist = -1;
+                while (subType != null && subType.GetInterfaces().Contains(baseType))
+                {
+                    subType = subType.BaseType;
+                    dist++;
+                }
+                return dist;
+            }
+            else
+            {
+                var dist = 0;
+                while (subType != baseType)
+                {
+                    if (subType is null) return -1;
+                    subType = subType.BaseType;
+                    dist++;
+                }
+                return dist;
+            }
+        }
+
         static Type FindImplementSubclass(Type type)
         {
-            if (type.IsAbstract || type.IsInterface)
+            if (type.IsSealed) return type;
+
+            var subtypes = Retriever.GetAllSubtypes(type)
+                .Append(type)
+                .Where(t => !t.IsInterface)
+                .Where(t => !t.IsAbstract)
+                .ToArray()
+                ;
+            if (subtypes.Length == 0)
             {
-                var subtypes = Retriever.GetAllSubtypes(type)
-                    .Append(type)
-                    .Where(t => !t.IsInterface)
-                    .Where(t => !t.IsAbstract)
-                    .ToArray()
-                    ;
-                if (subtypes.Length == 0)
-                {
-                    // throw new ArgumentException($"type {type} doesn't has an implement");
-                    return null;
-                }
-                if (subtypes.Length > 1)
-                {
-                    var orderedTypeGroups = subtypes
-                        .GroupBy(tp => tp.GetCustomAttribute<OrderDIAttribute>()?.order ?? 0)
-                        .OrderBy(g => g.Key);
-                    foreach (var g in orderedTypeGroups)
-                    {
-                        if (g.Count() > 1)
-                        {
-                            Debug.LogWarning($"type {type} exists more than one implements, sharing a priority order {g.Key}: {string.Join(",", g.AsEnumerable().Select(t => t.FullName))}");
-                        }
-                        return g.First();
-                    }
-                }
+                // throw new ArgumentException($"type {type} doesn't has an implement");
+                return null;
+            }
+            if (subtypes.Length == 1)
+            {
                 return subtypes[0];
             }
-            return type;
+            var minOrdered = subtypes
+                .GroupBy(t => t.GetCustomAttribute<OrderDIAttribute>()?.order ?? 0)
+                .OrderBy(g => g.Key)
+                .First()
+                .ToArray();
+            if (minOrdered.Length > 1)
+            {
+                minOrdered = minOrdered
+                    .GroupBy(t => GetDeriveDistance(t, type))
+                    .OrderBy(g => -g.Key)
+                    .First()
+                    .ToArray();
+            }
+            if (minOrdered.Length > 1)
+            {
+                Debug.LogWarning($"type {type} exists more than one implements: {string.Join(",", minOrdered.Select(t => t.FullName))}");
+            }
+            return minOrdered[0];
         }
+
         static Type FindTargetType(Type type)
         {
             if (!type.IsGenericType) return FindImplementSubclass(type);
@@ -161,7 +196,7 @@ namespace com.bbbirder.injection
 
             if (info.resultType is null)
             {
-                if(throwOnNoImplementations) 
+                if (throwOnNoImplementations)
                     throw new ArgumentException($"type {desiredType} doesn't has an implement");
                 return null;
             }
